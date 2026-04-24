@@ -1,16 +1,20 @@
-/**
- * Auth context. Persists session to expo-secure-store.
- * In real use this wraps Supabase Auth via @supabase/supabase-js.
- * For now it uses the API client's mock-friendly signIn/signUp.
- */
-
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import { signIn as apiSignIn, signUp as apiSignUp, signOut as apiSignOut, setAuthToken } from './api/client';
+import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setAuthToken } from './api/client';
 import type { User } from './types';
 
-const TOKEN_KEY = 'pesafi.auth.token';
-const USER_KEY = 'pesafi.auth.user';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
 
 type AuthContextValue = {
   user: User | null;
@@ -23,55 +27,61 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function mapSupabaseUser(u: any): User {
+  return {
+    id: u.id,
+    email: u.email ?? '',
+    name: u.user_metadata?.name,
+    phone: u.phone ?? u.user_metadata?.phone,
+    avatar_url: u.user_metadata?.avatar_url,
+    preferred_currency: u.user_metadata?.preferred_currency ?? 'KES',
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restore session on mount
   useEffect(() => {
-    (async () => {
-      try {
-        const savedToken = await SecureStore.getItemAsync(TOKEN_KEY);
-        const savedUser = await SecureStore.getItemAsync(USER_KEY);
-        if (savedToken && savedUser) {
-          setToken(savedToken);
-          setUser(JSON.parse(savedUser));
-          setAuthToken(savedToken);
-        }
-      } catch (e) {
-        console.warn('Failed to restore session', e);
-      } finally {
-        setLoading(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setUser(mapSupabaseUser(session.user));
+        setToken(session.access_token);
+        setAuthToken(session.access_token);
       }
-    })();
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setUser(mapSupabaseUser(session.user));
+        setToken(session.access_token);
+        setAuthToken(session.access_token);
+      } else {
+        setUser(null);
+        setToken(null);
+        setAuthToken(null);
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { user: u, token: t } = await apiSignIn(email, password);
-    await SecureStore.setItemAsync(TOKEN_KEY, t);
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(u));
-    setAuthToken(t);
-    setUser(u);
-    setToken(t);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
   }, []);
 
   const signUp = useCallback(async (params: { email: string; password: string; name: string; phone: string }) => {
-    const { user: u, token: t } = await apiSignUp(params);
-    await SecureStore.setItemAsync(TOKEN_KEY, t);
-    await SecureStore.setItemAsync(USER_KEY, JSON.stringify(u));
-    setAuthToken(t);
-    setUser(u);
-    setToken(t);
+    const { error } = await supabase.auth.signUp({
+      email: params.email,
+      password: params.password,
+      options: { data: { name: params.name, phone: params.phone, preferred_currency: 'KES' } },
+    });
+    if (error) throw new Error(error.message);
   }, []);
 
   const signOut = useCallback(async () => {
-    try { await apiSignOut(); } catch {}
-    await SecureStore.deleteItemAsync(TOKEN_KEY);
-    await SecureStore.deleteItemAsync(USER_KEY);
-    setAuthToken(null);
-    setUser(null);
-    setToken(null);
+    await supabase.auth.signOut();
   }, []);
 
   return (

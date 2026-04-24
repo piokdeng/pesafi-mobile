@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { WebView } from 'react-native-webview';
+import { supabase } from '@/lib/auth';
+import { getWallet } from '@/lib/api/client';
 import { Colors, Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -34,7 +39,7 @@ const METHODS: Method[] = [
   {
     key: 'card',
     title: 'Debit / Credit card',
-    subtitle: 'Visa, Mastercard, Amex — instant',
+    subtitle: 'Visa, Mastercard — instant via Coinbase',
     icon: 'card',
     color: '#3B82F6',
     badge: 'Instant',
@@ -88,10 +93,28 @@ export default function DepositScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
+  // In-app Coinbase WebView state
+  const [coinbaseUrl, setCoinbaseUrl] = useState<string | null>(null);
+  const [webviewLoading, setWebviewLoading] = useState(true);
+  const webviewRef = useRef<WebView>(null);
+
   const handlePhone = (val: string) => {
     setPhone(val);
     const d = detectCountryFromPhone(val);
     if (d) { setProvider(d.provider); setLocalCurrency(d.currency); }
+  };
+
+  const closeCoinbase = async () => {
+    setCoinbaseUrl(null);
+    setWebviewLoading(true);
+    // Refresh balance after closing Coinbase
+    try {
+      const updated = await getWallet('personal');
+      console.log('[DEPOSIT] Balance after Coinbase:', updated.balance);
+    } catch (e) {
+      console.warn('[DEPOSIT] Balance refresh failed', e);
+    }
+    setDone(true);
   };
 
   const handleSubmit = async () => {
@@ -105,10 +128,56 @@ export default function DepositScreen() {
       return;
     }
     setSubmitting(true);
-    setTimeout(() => {
+    try {
+      // Card, Apple Pay, ACH — all go through Coinbase Onramp
+      if (selected === 'card' || selected === 'ach' || selected === 'applepay') {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not signed in');
+
+        const w = await getWallet('personal');
+        if (!w.address) throw new Error('No wallet address found');
+
+        const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL || '';
+        const res = await fetch(apiBase + '/api/coinbase/session-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + session.access_token,
+          },
+          body: JSON.stringify({ walletAddress: w.address }),
+        });
+
+        if (!res.ok) {
+          const errBody = await res.text();
+          throw new Error('Coinbase error: ' + (errBody || res.status));
+        }
+
+        const data = await res.json();
+        const sessionToken = data.sessionToken || data.session_token || data.token;
+
+        if (sessionToken) {
+          const url = `https://pay.coinbase.com/buy/select-asset?sessionToken=${sessionToken}`;
+          console.log('[DEPOSIT] Opening Coinbase in-app:', url);
+          // Open in-app WebView modal instead of Safari
+          setCoinbaseUrl(url);
+        } else {
+          throw new Error('No session token received. Response: ' + JSON.stringify(data));
+        }
+      }
+      else if (selected === 'mobile_money') {
+        Alert.alert('Mobile Money', 'Mobile money deposits coming soon. Use card or Apple Pay for now.');
+      }
+      else if (selected === 'yellow_card') {
+        Alert.alert('Yellow Card', 'Yellow Card integration coming soon.');
+      }
+      else {
+        setDone(true);
+      }
+    } catch (err: any) {
+      Alert.alert('Deposit failed', err.message || 'Something went wrong. Try again.');
+    } finally {
       setSubmitting(false);
-      setDone(true);
-    }, 1200);
+    }
   };
 
   const reset = () => {
@@ -193,28 +262,12 @@ export default function DepositScreen() {
                 </>
               )}
 
-              {selected === 'card' && (
+              {(selected === 'card' || selected === 'ach' || selected === 'applepay') && (
                 <>
                   <View style={{ height: Spacing.md }} />
-                  <Input label="Card number" value="" onChangeText={() => {}} placeholder="4242 4242 4242 4242" keyboardType="number-pad" />
-                  <View style={{ height: Spacing.md }} />
-                  <View style={{ flexDirection: 'row', gap: Spacing.md }}>
-                    <View style={{ flex: 1 }}>
-                      <Input label="Expiry" value="" onChangeText={() => {}} placeholder="MM/YY" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Input label="CVC" value="" onChangeText={() => {}} placeholder="123" secureTextEntry />
-                    </View>
-                  </View>
-                </>
-              )}
-
-              {selected === 'ach' && (
-                <>
-                  <View style={{ height: Spacing.md }} />
-                  <Input label="Routing number" value="" onChangeText={() => {}} placeholder="9 digits" keyboardType="number-pad" />
-                  <View style={{ height: Spacing.md }} />
-                  <Input label="Account number" value="" onChangeText={() => {}} placeholder="Account number" keyboardType="number-pad" />
+                  <Text style={styles.hint}>
+                    You'll complete payment securely{selected === 'card' ? ' with your card' : selected === 'ach' ? ' via bank transfer' : ' with Apple Pay'}. Funds credit your PesaFi wallet once confirmed.
+                  </Text>
                 </>
               )}
 
@@ -225,13 +278,6 @@ export default function DepositScreen() {
                     You'll be redirected to Yellow Card to complete payment in your local currency.
                     Supported: NGN, KES, GHS, ZAR, UGX, TZS, XAF, XOF.
                   </Text>
-                </>
-              )}
-
-              {selected === 'applepay' && (
-                <>
-                  <View style={{ height: Spacing.md }} />
-                  <Text style={styles.hint}>Confirm with Face ID on the next screen.</Text>
                 </>
               )}
 
@@ -263,6 +309,82 @@ export default function DepositScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── COINBASE IN-APP WEBVIEW MODAL ── */}
+      <Modal
+        visible={!!coinbaseUrl}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeCoinbase}
+      >
+        <SafeAreaView style={styles.webviewSafe}>
+          {/* Custom header bar */}
+          <View style={styles.webviewHeader}>
+            <TouchableOpacity onPress={closeCoinbase} hitSlop={12}>
+              <Ionicons name="close" size={24} color={Colors.foreground} />
+            </TouchableOpacity>
+            <View style={styles.webviewTitleWrap}>
+              <Ionicons name="lock-closed" size={12} color={Colors.success} style={{ marginRight: 6 }} />
+              <Text style={styles.webviewTitle}>Secure Payment</Text>
+            </View>
+            <View style={{ width: 24 }} />
+          </View>
+
+          {/* Loading indicator */}
+          {webviewLoading && (
+            <View style={styles.webviewLoading}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text style={styles.webviewLoadingText}>Loading payment page...</Text>
+            </View>
+          )}
+
+          {/* The WebView */}
+          {coinbaseUrl && (
+            <WebView
+              ref={webviewRef}
+              source={{ uri: coinbaseUrl }}
+              style={{ flex: 1, opacity: webviewLoading ? 0 : 1 }}
+              onLoadEnd={() => setWebviewLoading(false)}
+              onError={(e) => {
+                console.error('[WEBVIEW] Error:', e.nativeEvent);
+                Alert.alert('Error', 'Failed to load payment page. Please try again.');
+                closeCoinbase();
+              }}
+              // Security & UX settings
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              scalesPageToFit={true}
+              allowsBackForwardNavigationGestures={true}
+              // Handle external links (e.g. "open in Coinbase app")
+              onShouldStartLoadWithRequest={(request) => {
+                const url = request.url;
+                // Allow Coinbase domains
+                if (
+                  url.includes('coinbase.com') ||
+                  url.includes('pay.coinbase.com') ||
+                  url.includes('login.coinbase.com') ||
+                  url.includes('accounts.google.com') ||
+                  url.includes('appleid.apple.com') ||
+                  url.startsWith('about:')
+                ) {
+                  return true;
+                }
+                // Block anything else (phishing protection)
+                console.log('[WEBVIEW] Blocked external URL:', url);
+                return false;
+              }}
+            />
+          )}
+
+          {/* Powered-by footer */}
+          <View style={styles.webviewFooter}>
+            <Text style={styles.webviewFooterText}>
+              Powered by Coinbase  •  Secured by PesaFi
+            </Text>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -296,4 +418,49 @@ const styles = StyleSheet.create({
   },
   successTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.foreground },
   successText: { fontSize: FontSize.base, color: Colors.mutedForeground, textAlign: 'center' },
+
+  // WebView modal styles
+  webviewSafe: { flex: 1, backgroundColor: Colors.background },
+  webviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  webviewTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  webviewTitle: {
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.semibold,
+    color: Colors.foreground,
+  },
+  webviewLoading: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+  },
+  webviewLoadingText: {
+    marginTop: Spacing.md,
+    color: Colors.mutedForeground,
+    fontSize: FontSize.sm,
+  },
+  webviewFooter: {
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  webviewFooterText: {
+    fontSize: 11,
+    color: Colors.mutedForeground,
+    letterSpacing: 0.3,
+  },
 });

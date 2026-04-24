@@ -1,14 +1,7 @@
 import React from 'react';
-import {
-  TouchableOpacity,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-  View,
-} from 'react-native';
-import { Colors, Radius, FontSize, FontWeight, Spacing } from '@/constants/theme';
+import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, ViewStyle, TextStyle, View } from 'react-native';
+import { useTheme } from '@/lib/theme';
+import { Radius, FontSize, FontWeight, Spacing } from '@/constants/theme';
 
 type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
 type Size = 'sm' | 'md' | 'lg';
@@ -25,21 +18,34 @@ type Props = {
   style?: ViewStyle;
 };
 
-export function Button({
-  title,
-  onPress,
-  variant = 'primary',
-  size = 'md',
-  loading,
-  disabled,
-  icon,
-  fullWidth,
-  style,
-}: Props) {
+export function Button({ title, onPress, variant = 'primary', size = 'md', loading, disabled, icon, fullWidth, style }: Props) {
+  const { colors, isDark } = useTheme();
   const isDisabled = disabled || loading;
-  const variantStyle = variantStyles[variant];
-  const sizeStyle = sizeStyles[size];
-  const textColor = variantTextColors[variant];
+
+  const bgColors: Record<Variant, string> = {
+    primary: colors.primary,
+    secondary: colors.muted,
+    outline: 'transparent',
+    ghost: 'transparent',
+    destructive: colors.destructive,
+  };
+
+  const textColors: Record<Variant, string> = {
+    primary: isDark ? '#08101D' : '#FFFFFF',
+    secondary: colors.foreground,
+    outline: colors.foreground,
+    ghost: colors.foreground,
+    destructive: '#FFFFFF',
+  };
+
+  const sizeStyles: Record<Size, { py: number; px: number; fs: number }> = {
+    sm: { py: 8, px: 14, fs: FontSize.sm },
+    md: { py: 14, px: 18, fs: FontSize.base },
+    lg: { py: 18, px: 22, fs: FontSize.lg },
+  };
+
+  const s = sizeStyles[size];
+  const textColor = textColors[variant];
 
   return (
     <TouchableOpacity
@@ -48,8 +54,13 @@ export function Button({
       disabled={isDisabled}
       style={[
         styles.base,
-        sizeStyle.button,
-        variantStyle,
+        {
+          backgroundColor: bgColors[variant],
+          paddingVertical: s.py,
+          paddingHorizontal: s.px,
+          borderWidth: variant === 'outline' ? 1 : 0,
+          borderColor: colors.border,
+        },
         fullWidth && { alignSelf: 'stretch' },
         isDisabled && styles.disabled,
         style,
@@ -60,9 +71,7 @@ export function Button({
       ) : (
         <View style={styles.content}>
           {icon}
-          <Text style={[styles.text, sizeStyle.text, { color: textColor }]}>
-            {title}
-          </Text>
+          <Text style={[styles.text, { color: textColor, fontSize: s.fs }]}>{title}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -70,43 +79,8 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
-  base: {
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  text: {
-    fontWeight: FontWeight.semibold,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
+  base: { borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
+  content: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  text: { fontWeight: FontWeight.semibold },
+  disabled: { opacity: 0.5 },
 });
-
-const variantStyles: Record<Variant, ViewStyle> = {
-  primary:    { backgroundColor: Colors.primary },
-  secondary:  { backgroundColor: Colors.muted },
-  outline:    { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.border },
-  ghost:      { backgroundColor: 'transparent' },
-  destructive:{ backgroundColor: Colors.destructive },
-};
-
-const variantTextColors: Record<Variant, string> = {
-  primary: '#08101D',         // dark text on bright green for contrast
-  secondary: Colors.foreground,
-  outline: Colors.foreground,
-  ghost: Colors.foreground,
-  destructive: Colors.white,
-};
-
-const sizeStyles: Record<Size, { button: ViewStyle; text: TextStyle }> = {
-  sm: { button: { paddingVertical: 8,  paddingHorizontal: 14 }, text: { fontSize: FontSize.sm } },
-  md: { button: { paddingVertical: 14, paddingHorizontal: 18 }, text: { fontSize: FontSize.base } },
-  lg: { button: { paddingVertical: 18, paddingHorizontal: 22 }, text: { fontSize: FontSize.lg } },
-};

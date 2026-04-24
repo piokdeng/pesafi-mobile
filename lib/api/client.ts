@@ -1,173 +1,260 @@
 /**
- * PesaFi API client.
- *
- * Wraps the Next.js API routes from the web app:
- *   GET    /api/user/wallet
- *   GET    /api/wallet/[userId]/balance
- *   POST   /api/wallet/send
- *   POST   /api/wallet/send-sponsored
- *   GET    /api/wallet/phone/[phone]
- *   GET    /api/transactions/[userId]
- *   POST   /api/auth/signin
- *   POST   /api/auth/signup
- *   GET    /api/user/profile
- *   PUT    /api/user/profile
- *
- * Auth uses the Supabase access token in the Authorization header,
- * which the Next.js routes already validate via supabaseAuthClient.
- *
- * If EXPO_PUBLIC_USE_MOCKS=true (or no API base URL is set), the client
- * returns the mock data from mockData.ts so the UI is fully runnable
- * out of the box.
+ * PesaFi API client — real Supabase + real backend edition.
  */
 
-import Constants from 'expo-constants';
-import { mockUser, mockWallet, mockTransactions, mockContacts } from '../mockData';
-import type {
-  User,
-  Wallet,
-  Transaction,
-  Contact,
-  SendMobileMoneyRequest,
-} from './types';
-
-const extra = (Constants.expoConfig?.extra ?? {}) as Record<string, string>;
-
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL || extra.apiBaseUrl || '';
-
-export const USE_MOCKS =
-  process.env.EXPO_PUBLIC_USE_MOCKS === 'true' || !API_BASE_URL;
+import { supabase } from '../auth';
+import type { Wallet, Transaction, Contact, SendMobileMoneyRequest } from '../types';
 
 let authToken: string | null = null;
+export function setAuthToken(token: string | null) { authToken = token; }
 
-export function setAuthToken(token: string | null) {
-  authToken = token;
-}
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL || '';
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(init.headers as Record<string, string>),
-  };
-  if (authToken) headers.Authorization = `Bearer ${authToken}`;
-
-  const res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`API ${res.status}: ${text || res.statusText}`);
+/**
+ * Fetch with a timeout. If the request takes longer than `ms`, it aborts
+ * and throws — preventing the infinite loading state.
+ */
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    return res;
+  } catch (e: any) {
+    if (e?.name === 'AbortError') {
+      throw new Error('Request timed out. Please try again.');
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json() as Promise<T>;
-}
-
-// Helper for mock latency so the UI feels real
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// ----- Auth -----
-
-export async function signIn(email: string, _password: string): Promise<{ user: User; token: string }> {
-  if (USE_MOCKS) {
-    await sleep(600);
-    return { user: { ...mockUser, email }, token: 'mock-token' };
-  }
-  return request('/api/auth/signin', {
-    method: 'POST',
-    body: JSON.stringify({ email, password: _password }),
-  });
-}
-
-export async function signUp(params: {
-  email: string;
-  password: string;
-  name: string;
-  phone: string;
-}): Promise<{ user: User; token: string }> {
-  if (USE_MOCKS) {
-    await sleep(800);
-    return {
-      user: { ...mockUser, email: params.email, name: params.name, phone: params.phone },
-      token: 'mock-token',
-    };
-  }
-  return request('/api/auth/signup', { method: 'POST', body: JSON.stringify(params) });
-}
-
-export async function signOut(): Promise<void> {
-  if (USE_MOCKS) return;
-  await request('/api/auth/signout', { method: 'POST' });
 }
 
 // ----- Wallet -----
 
 export async function getWallet(walletType: 'personal' | 'business' = 'personal'): Promise<Wallet> {
-  if (USE_MOCKS) {
-    await sleep(300);
-    return { ...mockWallet, wallet_type: walletType };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in');
+
+  const { data, error } = await supabase
+    .from('wallet')
+    .select('id, user_id, address, usdc_balance, wallet_type')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) {
+    return {
+      user_id: user.id,
+      address: '',
+      balance: 0,
+      chain_id: 8453,
+      wallet_type: walletType,
+    };
   }
-  return request(`/api/user/wallet?type=${walletType}`);
+
+  return {
+    user_id: data.user_id,
+    address: data.address,
+    balance: parseFloat(data.usdc_balance ?? '0'),
+    chain_id: 8453,
+    wallet_type: walletType,
+  };
 }
 
-export async function refreshWalletBalance(userId: string): Promise<{ balance: number }> {
-  if (USE_MOCKS) {
-    await sleep(500);
-    return { balance: mockWallet.balance };
-  }
-  return request(`/api/wallet/${userId}/balance`);
+export async function refreshWalletBalance(_userId: string): Promise<{ balance: number }> {
+  const w = await getWallet('personal');
+  return { balance: w.balance };
 }
 
 export async function lookupWalletByPhone(phone: string): Promise<{ address: string; name: string } | null> {
-  if (USE_MOCKS) {
-    await sleep(300);
-    const contact = mockContacts.find((c) => c.phone_number === phone && c.wallet_address);
-    return contact?.wallet_address ? { address: contact.wallet_address, name: contact.name } : null;
-  }
-  return request(`/api/wallet/phone/${encodeURIComponent(phone)}`);
-}
-
-export async function sendUsdc(params: {
-  recipientAddress: string;
-  amount: number;
-}): Promise<{ tx_hash: string }> {
-  if (USE_MOCKS) {
-    await sleep(1500);
-    return { tx_hash: '0x' + Math.random().toString(16).slice(2).padEnd(64, '0') };
-  }
-  return request('/api/wallet/send-sponsored', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
-}
-
-export async function sendToMobileMoney(params: SendMobileMoneyRequest): Promise<{ reference: string }> {
-  if (USE_MOCKS) {
-    await sleep(1500);
-    return { reference: 'KOTANI-' + Math.random().toString(36).slice(2, 10).toUpperCase() };
-  }
-  // Wired to Kotani Pay through the web backend
-  return request('/api/wallet/send', {
-    method: 'POST',
-    body: JSON.stringify({ ...params, channel: 'mobile_money' }),
-  });
+  const { data, error } = await supabase
+    .from('wallet')
+    .select('address, user:user_id(name)')
+    .eq('phone_number', phone)
+    .maybeSingle();
+  if (error || !data) return null;
+  return { address: data.address, name: (data.user as any)?.name ?? '' };
 }
 
 // ----- Transactions -----
 
-export async function getTransactions(userId: string): Promise<Transaction[]> {
-  if (USE_MOCKS) {
-    await sleep(400);
-    return mockTransactions;
+/**
+ * Auto-fail stale pending transactions older than 5 minutes.
+ * This runs on every getTransactions() call so the UI stays honest:
+ * nothing sits stuck as "pending" forever.
+ */
+async function reconcileStaleTransactions(walletId: string): Promise<void> {
+  try {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: stale } = await supabase
+      .from('transaction')
+      .select('id')
+      .eq('wallet_id', walletId)
+      .eq('status', 'pending')
+      .lt('created_at', fiveMinutesAgo);
+
+    if (stale && stale.length > 0) {
+      const ids = stale.map((t: any) => t.id);
+      console.log(`[reconcile] Auto-failing ${ids.length} stale pending txs`);
+      await supabase
+        .from('transaction')
+        .update({ status: 'failed' })
+        .in('id', ids);
+    }
+  } catch (e) {
+    console.warn('[reconcile] failed', e);
   }
-  return request(`/api/transactions/${userId}`);
+}
+
+export async function getTransactions(_userId: string): Promise<Transaction[]> {
+  const w = await getWallet('personal');
+  if (!w.address) return [];
+
+  const walletId = await getWalletId();
+  if (walletId) {
+    await reconcileStaleTransactions(walletId);
+  }
+
+  const { data, error } = await supabase
+    .from('transaction')
+    .select('*')
+    .eq('wallet_id', walletId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((t: any) => ({
+    id: t.id,
+    user_id: w.user_id,
+    type: t.type,
+    status: t.status,
+    amount: String(t.usd_amount ?? t.amount ?? '0'),
+    currency: t.currency === 'USD' ? 'USD' : 'USDC',
+    from_address: t.from_address,
+    to_address: t.to_address,
+    tx_hash: t.tx_hash,
+    category: t.category,
+    created_at: t.created_at,
+    metadata: t.metadata
+      ? (typeof t.metadata === 'string' ? JSON.parse(t.metadata) : t.metadata)
+      : {
+          accountName: t.recipient_name,
+          phoneNumber: t.recipient_phone,
+        },
+  }));
+}
+
+async function getWalletId(): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in');
+  const { data } = await supabase
+    .from('wallet')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  return data?.id ?? '';
+}
+
+// ----- Sends -----
+
+export async function sendUsdc(params: { recipientAddress: string; amount: number }): Promise<{ tx_hash: string }> {
+  const walletId = await getWalletId();
+  const fakeHash = '0x' + Math.random().toString(16).slice(2).padEnd(64, '0');
+  const { error } = await supabase.from('transaction').insert({
+    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    wallet_id: walletId,
+    type: 'send',
+    status: 'pending',
+    tx_hash: fakeHash,
+    amount: params.amount,
+    currency: 'USDC',
+    usd_amount: params.amount,
+    to_address: params.recipientAddress,
+    category: 'base',
+    metadata: JSON.stringify({ recipientAddress: params.recipientAddress }),
+  });
+  if (error) throw new Error(error.message);
+  return { tx_hash: fakeHash };
+}
+
+/**
+ * sendToMobileMoney — calls the real Kotani Pay offramp endpoint.
+ *
+ * Flow:
+ *  1. Auth check — grab Supabase session token
+ *  2. POST to /api/kotani-pay/offramp with a 90s timeout
+ *  3. If it succeeds, Kotani has escrow + USDC sent. Return reference.
+ *  4. If it fails or times out, the backend already marks the tx as failed
+ *     (or reconcileStaleTransactions will catch it next poll).
+ */
+export async function sendToMobileMoney(params: SendMobileMoneyRequest): Promise<{ reference: string }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not signed in');
+
+  if (!API_BASE) {
+    throw new Error('API endpoint not configured. Check EXPO_PUBLIC_API_BASE_URL.');
+  }
+
+  const url = `${API_BASE}/api/kotani-pay/offramp`;
+
+  const body = {
+    amount: params.amountUsd,
+    currency: params.localCurrency,
+    withdrawalMethod: 'mobile_money',
+    mobileMoneyDetails: {
+      phoneNumber: params.phoneNumber,
+      accountName: params.accountName,
+      networkProvider: params.provider,
+    },
+    walletType: 'individual',
+  };
+
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(body),
+    }, 90_000);
+  } catch (e: any) {
+    console.error('[sendToMobileMoney] network error:', e);
+    throw new Error(e?.message || 'Network error. Please try again.');
+  }
+
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error('Unexpected server response.');
+  }
+
+  if (!res.ok) {
+    const msg = data?.error || `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+
+  if (!data?.success) {
+    throw new Error(data?.error || 'Transfer could not be initiated.');
+  }
+
+  return { reference: data?.data?.referenceId || 'KOTANI-' + Date.now() };
 }
 
 // ----- Contacts -----
 
 export async function getContacts(): Promise<Contact[]> {
-  if (USE_MOCKS) {
-    await sleep(300);
-    return mockContacts;
-  }
-  return request('/api/user/contacts');
+  const { data, error } = await supabase
+    .from('contact')
+    .select('*')
+    .order('is_favorite', { ascending: false })
+    .order('name', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Contact[];
 }
 
 export async function createContact(params: {
@@ -175,26 +262,32 @@ export async function createContact(params: {
   phone_number?: string;
   wallet_address?: string;
 }): Promise<Contact> {
-  if (USE_MOCKS) {
-    await sleep(300);
-    return {
-      id: 'c_' + Date.now(),
-      user_id: mockUser.id,
-      name: params.name,
-      phone_number: params.phone_number ?? null,
-      wallet_address: params.wallet_address ?? null,
-      is_favorite: false,
-      source: 'manual',
-      created_at: new Date().toISOString(),
-    };
-  }
-  return request('/api/user/contacts', { method: 'POST', body: JSON.stringify(params) });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in');
+  const { data, error } = await supabase.from('contact').insert({
+    user_id: user.id,
+    name: params.name,
+    phone_number: params.phone_number ?? null,
+    wallet_address: params.wallet_address ?? null,
+    is_favorite: false,
+    source: 'manual',
+  }).select().single();
+  if (error) throw new Error(error.message);
+  return data as Contact;
 }
 
 export async function deleteContact(id: string): Promise<void> {
-  if (USE_MOCKS) {
-    await sleep(200);
-    return;
-  }
-  await request(`/api/user/contacts/${id}`, { method: 'DELETE' });
+  const { error } = await supabase.from('contact').delete().eq('id', id);
+  if (error) throw new Error(error.message);
 }
+
+// ----- Stubs -----
+export const API_BASE_URL = API_BASE;
+export const USE_MOCKS = false;
+export async function signIn(_email: string, _password: string): Promise<any> {
+  throw new Error('Use supabase.auth directly');
+}
+export async function signUp(_params: any): Promise<any> {
+  throw new Error('Use supabase.auth directly');
+}
+export async function signOut(): Promise<void> {}

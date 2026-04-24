@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, ViewStyle, StyleSheet } from 'react-native';
-import { Colors, Radius, Spacing, Shadow } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
+import { Radius, Spacing, Shadow } from '@/constants/theme';
 
 type Props = {
   children: React.ReactNode;
@@ -9,16 +10,23 @@ type Props = {
 };
 
 export function Card({ children, style, padding = 'lg' }: Props) {
+  const { colors } = useTheme();
   const pad = typeof padding === 'number' ? padding : Spacing[padding];
-  return <View style={[styles.card, { padding: pad }, style]}>{children}</View>;
+  return (
+    <View style={[
+      styles.card,
+      { padding: pad, backgroundColor: colors.card, borderColor: colors.border },
+      style,
+    ]}>
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.card,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: Colors.border,
     ...Shadow.card,
   },
 });

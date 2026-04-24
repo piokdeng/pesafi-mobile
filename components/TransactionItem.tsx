@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, Spacing, FontSize, FontWeight } from '@/constants/theme';
+import { useRouter } from 'expo-router';
+import { useTheme } from '@/lib/theme';
+import { Spacing, FontSize, FontWeight } from '@/constants/theme';
 import { formatUsd, truncateAddress } from '@/lib/currency';
 import type { Transaction, Contact } from '@/lib/types';
 
@@ -29,23 +31,14 @@ function getLabel(tx: Transaction, contacts: Contact[] = []): string {
   switch (tx.type) {
     case 'send': {
       const addr = tx.to_address ?? meta.recipientAddress;
-      const name = findName(addr, null);
-      return `Sent to ${name ?? truncateAddress(addr)}`;
+      return `Sent to ${findName(addr, null) ?? truncateAddress(addr)}`;
     }
     case 'receive': {
       const addr = tx.from_address ?? meta.senderAddress;
-      const name = findName(addr, null);
-      return `Received from ${name ?? truncateAddress(addr)}`;
+      return `Received from ${findName(addr, null) ?? truncateAddress(addr)}`;
     }
     case 'deposit': {
-      const labels: Record<string, string> = {
-        kotani_pay: 'Kotani Pay',
-        coinbase: 'Coinbase',
-        transak: 'Transak',
-        yellow_card: 'Yellow Card',
-        base: 'Base Network',
-        internal: 'PesaFi',
-      };
+      const labels: Record<string, string> = { kotani_pay: 'Kotani Pay', coinbase: 'Coinbase', transak: 'Transak', yellow_card: 'Yellow Card', base: 'Base', internal: 'PesaFi' };
       return tx.category ? `Deposit via ${labels[tx.category] ?? tx.category}` : 'Deposit';
     }
     case 'withdrawal': {
@@ -55,8 +48,7 @@ function getLabel(tx: Transaction, contacts: Contact[] = []): string {
       if (phone) return `Sent to ${phone}`;
       return `Withdrawal to ${truncateAddress(tx.to_address)}`;
     }
-    default:
-      return tx.type;
+    default: return tx.type;
   }
 }
 
@@ -73,84 +65,52 @@ function relativeTime(iso: string): string {
 }
 
 export function TransactionItem({ tx, contacts = [], onPress, hideAmount }: Props) {
+  const { colors } = useTheme();
+  const router = useRouter();
   const isIncoming = tx.type === 'receive' || tx.type === 'deposit';
   const isPending = tx.status === 'pending';
   const isFailed = tx.status === 'failed' || tx.status === 'refunded';
 
   const iconName: keyof typeof Ionicons.glyphMap =
-    tx.type === 'send'       ? 'arrow-up-outline' :
-    tx.type === 'receive'    ? 'arrow-down-outline' :
-    tx.type === 'deposit'    ? 'add-circle-outline' :
-                               'arrow-up-circle-outline';
+    tx.type === 'send' ? 'arrow-up-outline' :
+    tx.type === 'receive' ? 'arrow-down-outline' :
+    tx.type === 'deposit' ? 'add-circle-outline' : 'arrow-up-circle-outline';
 
-  const iconBg =
-    isFailed  ? Colors.destructiveBg :
-    isPending ? Colors.warningBg :
-    isIncoming ? Colors.successBg :
-    'rgba(249,115,22,0.15)'; // orange tint for outbound
-
-  const iconColor =
-    isFailed  ? Colors.destructive :
-    isPending ? Colors.warning :
-    isIncoming ? Colors.success :
-    Colors.accent;
-
-  const amountColor =
-    isFailed ? Colors.destructive :
-    isIncoming ? Colors.success :
-    Colors.foreground;
-
+  const iconBg = isFailed ? colors.destructiveBg : isPending ? colors.warningBg : isIncoming ? colors.successBg : 'rgba(249,115,22,0.12)';
+  const iconColor = isFailed ? colors.destructive : isPending ? colors.warning : isIncoming ? colors.success : colors.accent;
+  const amountColor = isFailed ? colors.destructive : isIncoming ? colors.success : colors.foreground;
   const sign = isIncoming ? '+' : '-';
 
+  const handlePress = () => {
+    if (onPress) { onPress(); return; }
+    router.push(`/tx/${tx.id}` as any);
+  };
+
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.row}>
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.7} style={styles.row}>
       <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
-        <Ionicons name={iconName} size={20} color={iconColor} />
+        <Ionicons name={iconName} size={18} color={iconColor} />
       </View>
       <View style={styles.middle}>
-        <Text style={styles.label} numberOfLines={1}>{getLabel(tx, contacts)}</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.label, { color: colors.foreground }]} numberOfLines={1}>{getLabel(tx, contacts)}</Text>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
           {relativeTime(tx.created_at)}
           {isPending && '  •  Pending'}
           {isFailed && `  •  ${tx.status}`}
         </Text>
       </View>
       <Text style={[styles.amount, { color: amountColor }]}>
-        {sign}{formatUsd(parseFloat(tx.amount), hideAmount)}
+        {isFailed ? '' : sign}{formatUsd(parseFloat(tx.amount), hideAmount)}
       </Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-    gap: Spacing.md,
-  },
-  iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  middle: {
-    flex: 1,
-  },
-  label: {
-    fontSize: FontSize.base,
-    fontWeight: FontWeight.semibold,
-    color: Colors.foreground,
-  },
-  subtitle: {
-    fontSize: FontSize.xs,
-    color: Colors.mutedForeground,
-    marginTop: 2,
-  },
-  amount: {
-    fontSize: FontSize.base,
-    fontWeight: FontWeight.semibold,
-  },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, gap: Spacing.md },
+  iconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  middle: { flex: 1 },
+  label: { fontSize: FontSize.base, fontWeight: FontWeight.medium },
+  subtitle: { fontSize: FontSize.xs, marginTop: 2 },
+  amount: { fontSize: FontSize.base, fontWeight: FontWeight.semibold },
 });

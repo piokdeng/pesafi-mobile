@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
-import { Colors, Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
+import { Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { getWallet } from '@/lib/api/client';
@@ -23,11 +24,12 @@ import { useAuth } from '@/lib/auth';
 export default function ReceiveScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { colors } = useTheme();
   const [address, setAddress] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    getWallet().then((w) => setAddress(w.address)).catch(() => {});
+    getWallet().then((w) => setAddress(w.address || null)).catch(() => {});
   }, []);
 
   const handleCopy = async () => {
@@ -39,66 +41,71 @@ export default function ReceiveScreen() {
 
   const handleShare = async () => {
     if (!address) return;
-    await Share.share({
-      message: `Send me USDC on PesaFi: ${address}`,
-    });
+    await Share.share({ message: `Send me USDC on PesaFi: ${address}` });
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="close" size={24} color={Colors.foreground} />
+          <Ionicons name="close" size={24} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={styles.title}>Receive money</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>Receive money</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <Card>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             Scan this QR code or share your wallet address to receive USDC.
           </Text>
 
+          {/* QR wrapper — fixed size, guaranteed visible background, centered */}
           <View style={styles.qrWrap}>
-            {address ? (
-              <View style={styles.qrInner}>
+            <View style={styles.qrInner}>
+              {address ? (
                 <QRCode
                   value={address}
-                  size={220}
-                  color={Colors.foreground}
-                  backgroundColor="white"
+                  size={240}
+                  color="#000000"
+                  backgroundColor="#FFFFFF"
+                  quietZone={8}
                 />
-              </View>
-            ) : (
-              <View style={styles.qrPlaceholder}>
-                <ActivityIndicator color={Colors.primary} size="large" />
-              </View>
-            )}
+              ) : (
+                <View style={styles.qrLoading}>
+                  <ActivityIndicator color={colors.primary} size="large" />
+                </View>
+              )}
+            </View>
           </View>
 
-          {/* User name */}
-          <Text style={styles.userName}>{user?.name ?? 'Your wallet'}</Text>
+          <Text style={[styles.userName, { color: colors.foreground }]}>
+            {user?.name ?? 'Your wallet'}
+          </Text>
 
-          {/* Address pill */}
-          <TouchableOpacity onPress={handleCopy} style={styles.addressPill} activeOpacity={0.7}>
-            <Text style={styles.addressText}>{address ? truncateAddress(address) : '...'}</Text>
+          <TouchableOpacity
+            onPress={handleCopy}
+            style={[styles.addressPill, { backgroundColor: colors.muted }]}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.addressText, { color: colors.foreground }]}>
+              {address ? truncateAddress(address) : '...'}
+            </Text>
             <Ionicons
               name={copied ? 'checkmark-circle' : 'copy-outline'}
               size={18}
-              color={copied ? Colors.success : Colors.primary}
+              color={copied ? colors.success : colors.primary}
             />
           </TouchableOpacity>
 
-          {copied && <Text style={styles.copiedText}>Address copied!</Text>}
+          {copied && <Text style={[styles.copiedText, { color: colors.success }]}>Address copied!</Text>}
 
-          {/* Actions */}
           <View style={styles.actionRow}>
             <Button
               title="Copy address"
               variant="outline"
               onPress={handleCopy}
-              icon={<Ionicons name="copy-outline" size={18} color={Colors.foreground} />}
+              icon={<Ionicons name="copy-outline" size={18} color={colors.foreground} />}
               style={{ flex: 1 }}
             />
             <Button
@@ -110,15 +117,15 @@ export default function ReceiveScreen() {
           </View>
         </Card>
 
-        {/* Info card */}
+        {/* Warning card */}
         <Card style={{ marginTop: Spacing.lg, backgroundColor: 'rgba(245,158,11,0.1)', borderColor: 'rgba(245,158,11,0.3)' }}>
           <View style={{ flexDirection: 'row', gap: Spacing.md }}>
-            <Ionicons name="warning-outline" size={20} color={Colors.warning} />
+            <Ionicons name="warning-outline" size={20} color={colors.warning} />
             <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.warning, fontWeight: FontWeight.semibold, marginBottom: 4 }}>
+              <Text style={{ color: colors.warning, fontWeight: FontWeight.semibold, marginBottom: 4 }}>
                 USDC on Base only
               </Text>
-              <Text style={{ color: Colors.foregroundSubtle, fontSize: FontSize.sm, lineHeight: 18 }}>
+              <Text style={{ color: colors.foregroundSubtle, fontSize: FontSize.sm, lineHeight: 18 }}>
                 Only send USDC on the Base network to this address. Other tokens or networks may be lost.
               </Text>
             </View>
@@ -130,7 +137,7 @@ export default function ReceiveScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -139,13 +146,13 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
   },
-  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.foreground },
+  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   scroll: { padding: Spacing.lg },
   subtitle: {
     fontSize: FontSize.sm,
-    color: Colors.mutedForeground,
     textAlign: 'center',
     marginBottom: Spacing.lg,
+    lineHeight: 18,
   },
   qrWrap: {
     alignItems: 'center',
@@ -153,24 +160,25 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.md,
   },
   qrInner: {
-    padding: Spacing.lg,
-    backgroundColor: 'white',
+    width: 280,
+    height: 280,
+    backgroundColor: '#FFFFFF',
     borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
-  qrPlaceholder: {
-    width: 252,
-    height: 252,
-    backgroundColor: Colors.muted,
-    borderRadius: Radius.lg,
+  qrLoading: {
+    width: 240,
+    height: 240,
+    backgroundColor: '#F5F5F5',
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   userName: {
     fontSize: FontSize.lg,
     fontWeight: FontWeight.semibold,
-    color: Colors.foreground,
     textAlign: 'center',
     marginTop: Spacing.lg,
   },
@@ -179,7 +187,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.muted,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 10,
     borderRadius: Radius.full,
@@ -188,12 +195,10 @@ const styles = StyleSheet.create({
   addressText: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
-    color: Colors.foreground,
     fontFamily: 'monospace',
   },
   copiedText: {
     textAlign: 'center',
-    color: Colors.success,
     fontSize: FontSize.xs,
     marginTop: Spacing.xs,
   },

@@ -1,9 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, FontSize, FontWeight, Spacing, Shadow } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
+import { Radius, FontSize, FontWeight, Spacing, Shadow } from '@/constants/theme';
 import { formatUsd, formatLocal } from '@/lib/currency';
+import { BalanceChart } from './BalanceChart';
+import type { Transaction } from '@/lib/types';
 
 type Props = {
   name: string;
@@ -13,14 +16,44 @@ type Props = {
   hideLocal?: boolean;
   refreshing?: boolean;
   onRefresh?: () => void;
+  transactions?: Transaction[];
 };
 
+const WIDTH = Dimensions.get('window').width - 32 - 48; // container padding
+
 /**
- * Hero balance card. Mirrors the gradient design from
- * src/app/dashboard/AutoWalletDashboard.tsx (lines 582-647 of the web app):
- * emerald → green → teal gradient with subtle orange + white glows,
- * card chip + WiFi icon decoration, name top-left, big balance bottom-right.
+ * Rebuild a balance history series from transactions.
+ * Newest balance is `balance`. Walking backwards through completed tx,
+ * we subtract inbound and add outbound. Pending tx are ignored.
  */
+function buildHistory(balance: number, txs: Transaction[] = []) {
+  if (!txs.length) return undefined;
+  const completed = txs.filter(t => t.status === 'completed' || t.status === 'pending');
+  if (!completed.length) return undefined;
+
+  // Sort newest first
+  const sorted = [...completed].sort((a, b) =>
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  const series: { value: number; date: Date }[] = [];
+  let running = balance;
+  // Add current point
+  series.push({ value: running, date: new Date() });
+
+  for (const tx of sorted) {
+    const amt = parseFloat(tx.amount) || 0;
+    const isIncoming = tx.type === 'receive' || tx.type === 'deposit';
+    // Before this tx, balance was opposite direction
+    running = isIncoming ? running - amt : running + amt;
+    if (running < 0) running = 0;
+    series.push({ value: running, date: new Date(tx.created_at) });
+  }
+
+  // Reverse so it's oldest → newest
+  return series.reverse();
+}
+
 export function BalanceCard({
   name,
   balance,
@@ -29,57 +62,61 @@ export function BalanceCard({
   hideLocal,
   refreshing,
   onRefresh,
+  transactions,
 }: Props) {
+  const { colors } = useTheme();
+  const [scrubValue, setScrubValue] = useState<number | null>(null);
+
+  const displayBalance = scrubValue != null ? scrubValue : balance;
+  const history = buildHistory(balance, transactions);
+
   return (
     <LinearGradient
-      colors={[Colors.gradientStart, Colors.gradientMid, Colors.gradientEnd]}
+      colors={[colors.gradientStart, colors.gradientMid, colors.gradientEnd]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.card}
     >
-      {/* Subtle decorative glows */}
       <View style={[styles.glow, styles.glowTopRight]} />
       <View style={[styles.glow, styles.glowBottomLeft]} />
 
-      {/* Header row */}
       <View style={styles.headerRow}>
-        <Text style={styles.name} numberOfLines={1}>{name}</Text>
-        <View style={styles.headerRight}>
-          <View style={styles.brandPill}>
-            <Ionicons name="card-outline" size={14} color="rgba(255,255,255,0.85)" />
-            <Text style={styles.brandText}>PesaFi</Text>
-          </View>
-          <TouchableOpacity
-            onPress={onRefresh}
-            disabled={refreshing}
-            style={styles.refreshBtn}
-            hitSlop={8}
-          >
-            {refreshing ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Ionicons name="refresh" size={18} color="white" />
-            )}
-          </TouchableOpacity>
+        <View style={styles.brandPill}>
+          <Ionicons name="card-outline" size={14} color="rgba(255,255,255,0.85)" />
+          <Text style={styles.brandText}>PesaFi</Text>
         </View>
+        <TouchableOpacity onPress={onRefresh} disabled={refreshing} style={styles.refreshBtn} hitSlop={8}>
+          {refreshing ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Ionicons name="refresh" size={16} color="white" />
+          )}
+        </TouchableOpacity>
       </View>
 
-      {/* Bottom row: card chip + balance */}
-      <View style={styles.bottomRow}>
-        <View style={styles.chipRow}>
-          <View style={styles.chip}>
-            <View style={styles.chipLine} />
-            <View style={styles.chipLine} />
-            <View style={styles.chipLine} />
-          </View>
-          <Ionicons name="wifi" size={20} color="rgba(255,255,255,0.4)" style={styles.wifiIcon} />
-        </View>
-
-        <View style={styles.amountWrap}>
-          <Text style={styles.amount}>{formatUsd(balance, hideBalance)}</Text>
-          <Text style={styles.amountLocal}>≈ {formatLocal(balance, preferredCurrency, hideLocal)}</Text>
-        </View>
+      <View style={styles.balanceWrap}>
+        <Text style={styles.balanceLabel}>
+          {scrubValue != null ? 'Balance at selected point' : 'Total balance'}
+        </Text>
+        <Text style={styles.amount}>{formatUsd(displayBalance, hideBalance && scrubValue == null)}</Text>
+        <Text style={styles.amountLocal}>≈ {formatLocal(displayBalance, preferredCurrency, hideLocal && scrubValue == null)}</Text>
       </View>
+
+      <View style={styles.chartWrap}>
+        <BalanceChart
+          history={history}
+          width={WIDTH}
+          height={90}
+          strokeColor="#FFFFFF"
+          onScrub={setScrubValue}
+        />
+      </View>
+
+      <Text style={styles.hint}>
+        {transactions && transactions.length > 0
+          ? 'Press & drag on the chart to see balance history'
+          : 'Chart will populate as you transact'}
+      </Text>
     </LinearGradient>
   );
 }
@@ -88,106 +125,63 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.xxl,
     padding: Spacing.xl,
+    paddingBottom: Spacing.md,
     overflow: 'hidden',
-    minHeight: 180,
+    minHeight: 240,
     ...Shadow.hero,
   },
-  glow: {
-    position: 'absolute',
-    borderRadius: 999,
-  },
+  glow: { position: 'absolute', borderRadius: 999 },
   glowTopRight: {
-    width: 220,
-    height: 220,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    top: -80,
-    right: -80,
+    width: 200, height: 200,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    top: -70, right: -70,
   },
   glowBottomLeft: {
-    width: 220,
-    height: 220,
-    backgroundColor: 'rgba(245, 138, 31, 0.18)',
-    bottom: -100,
-    left: -100,
+    width: 200, height: 200,
+    backgroundColor: 'rgba(245,138,31,0.12)',
+    bottom: -90, left: -90,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  name: {
-    fontSize: FontSize.lg,
-    fontWeight: FontWeight.semibold,
-    color: 'rgba(255,255,255,0.95)',
-    flex: 1,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  brandPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
+  brandPill: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   brandText: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: FontSize.sm,
     fontWeight: FontWeight.semibold,
   },
   refreshBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30, height: 30, borderRadius: 15,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
-  bottomRow: {
-    marginTop: Spacing.xxl,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  chipRow: {
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  chip: {
-    width: 44,
-    height: 32,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingHorizontal: 6,
-  },
-  chipLine: {
-    width: 1,
-    height: 18,
-    backgroundColor: 'rgba(255,255,255,0.4)',
-  },
-  wifiIcon: {
-    transform: [{ rotate: '-90deg' }],
-  },
-  amountWrap: {
-    alignItems: 'flex-end',
-    flex: 1,
-    marginLeft: Spacing.lg,
+  balanceWrap: { marginTop: Spacing.lg },
+  balanceLabel: {
+    fontSize: FontSize.sm,
+    color: 'rgba(255,255,255,0.65)',
+    fontWeight: FontWeight.medium,
   },
   amount: {
     fontSize: FontSize.display,
     fontWeight: FontWeight.bold,
     color: 'white',
     letterSpacing: -1,
+    marginTop: 2,
   },
   amountLocal: {
-    fontSize: FontSize.base,
-    color: 'rgba(255,255,255,0.75)',
+    fontSize: FontSize.sm,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: 2,
+  },
+  chartWrap: {
+    marginTop: Spacing.md,
+  },
+  hint: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 11,
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
