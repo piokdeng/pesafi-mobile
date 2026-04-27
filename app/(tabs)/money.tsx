@@ -6,18 +6,21 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/lib/theme';
 import { Spacing, FontSize, FontWeight, Radius, Shadow } from '@/constants/theme';
+import { useResponsive } from '@/lib/responsive';
 
 export default function MoneyTab() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { isDesktop } = useResponsive();
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={[styles.container, isDesktop && styles.containerDesktop]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.foreground }]}>Money</Text>
       </View>
 
-      <View style={styles.grid}>
+      <View style={[styles.grid, isDesktop && styles.gridDesktop]}>
         <TouchableOpacity onPress={() => router.push('/deposit')} activeOpacity={0.85} style={styles.cell}>
           <LinearGradient colors={[colors.deposit, colors.depositDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
             <View style={styles.cardIcon}>
@@ -38,15 +41,19 @@ export default function MoneyTab() {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  container: { flex: 1 },
+  containerDesktop: { maxWidth: 780, width: '100%', alignSelf: 'center', paddingHorizontal: 40, paddingTop: 32 },
   header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.md },
   title: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold },
   grid: { flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.lg },
+  gridDesktop: { paddingHorizontal: 0 },
   cell: { flex: 1 },
   card: {
     borderRadius: Radius.xl,

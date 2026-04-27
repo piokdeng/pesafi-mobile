@@ -16,6 +16,7 @@ import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
 import { getTransactions, getContacts } from '@/lib/api/client';
 import type { Transaction, Contact, TransactionType } from '@/lib/types';
+import { useResponsive } from '@/lib/responsive';
 
 const FILTERS: Array<{ key: TransactionType | 'all'; label: string }> = [
   { key: 'all',        label: 'All' },
@@ -28,6 +29,7 @@ const FILTERS: Array<{ key: TransactionType | 'all'; label: string }> = [
 export default function ActivityScreen() {
   const { user } = useAuth();
   const { prefs } = usePreferences();
+  const { isDesktop } = useResponsive();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +76,7 @@ export default function ActivityScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={[styles.container, isDesktop && styles.containerDesktop]}>
       <View style={styles.header}>
         <Text style={styles.title}>Activity</Text>
       </View>
@@ -132,12 +135,15 @@ export default function ActivityScreen() {
           }
         />
       )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1 },
+  containerDesktop: { maxWidth: 860, width: '100%', alignSelf: 'center', paddingHorizontal: 40, paddingTop: 32 },
   header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
   title: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.foreground },
   searchWrap: {

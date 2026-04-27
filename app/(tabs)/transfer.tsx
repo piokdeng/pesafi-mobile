@@ -11,11 +11,13 @@ import { getTransactions, getContacts } from '@/lib/api/client';
 import { Card } from '@/components/ui/Card';
 import { TransactionItem } from '@/components/TransactionItem';
 import type { Transaction, Contact } from '@/lib/types';
+import { useResponsive } from '@/lib/responsive';
 
 export default function TransferTab() {
   const router = useRouter();
   const { user } = useAuth();
   const { colors } = useTheme();
+  const { isDesktop } = useResponsive();
   const [txs, setTxs] = useState<Transaction[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
 
@@ -35,12 +37,16 @@ export default function TransferTab() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, isDesktop && styles.scrollDesktop]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={isDesktop ? styles.inner : undefined}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.foreground }]}>Transfer</Text>
         </View>
 
-        <View style={styles.grid}>
+        <View style={[styles.grid, isDesktop && styles.gridDesktop]}>
           <TouchableOpacity onPress={() => router.push('/send')} activeOpacity={0.85} style={styles.cell}>
             <LinearGradient colors={[colors.send, colors.sendDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.card}>
               <View style={styles.cardIcon}>
@@ -83,7 +89,7 @@ export default function TransferTab() {
         </View>
 
         {/* Recent transfer activity */}
-        <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>
+        <View style={[{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }, isDesktop && { paddingHorizontal: 0 }]}>
           <Card padding="lg">
             <View style={styles.activityHeader}>
               <Text style={[styles.activityTitle, { color: colors.foreground }]}>Recent transfers</Text>
@@ -112,6 +118,7 @@ export default function TransferTab() {
             )}
           </Card>
         </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -120,9 +127,12 @@ export default function TransferTab() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingBottom: Spacing.xxl },
+  scrollDesktop: { alignItems: 'center', paddingHorizontal: 40, paddingVertical: 32 },
+  inner: { width: '100%', maxWidth: 860 },
   header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.md },
   title: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, paddingHorizontal: Spacing.lg },
+  gridDesktop: { paddingHorizontal: 0 },
   cell: { width: '47%', flexGrow: 1 },
   card: {
     borderRadius: Radius.xl,

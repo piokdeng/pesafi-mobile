@@ -99,7 +99,7 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
-        <View style={isDesktop ? styles.contentWrapper : undefined}>
+        <View style={[isDesktop ? styles.contentWrapper : styles.contentFull]}>
         {/* Top bar: avatar + theme toggle (left) — greeting (right) */}
         <View style={styles.topBar}>
           <View style={styles.topLeft}>
@@ -215,8 +215,9 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: Spacing.xxl },
-  scrollDesktop: { alignItems: 'center', paddingHorizontal: Spacing.xxl, paddingTop: Spacing.xxl },
-  contentWrapper: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, gap: Spacing.lg },
+  scrollDesktop: { alignItems: 'center', paddingHorizontal: 40, paddingVertical: 32 },
+  contentFull: { gap: Spacing.lg },
+  contentWrapper: { width: '100%', maxWidth: 780, gap: Spacing.lg },
   centerLoad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },

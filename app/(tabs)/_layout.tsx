@@ -1,22 +1,21 @@
 import React from 'react';
+import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useTheme } from '@/lib/theme';
-import { useResponsive, SIDEBAR_WIDTH } from '@/lib/responsive';
-import { AdaptiveTabBar } from '@/components/AdaptiveTabBar';
+import { useResponsive } from '@/lib/responsive';
+import { DesktopSidebar } from '@/components/DesktopSidebar';
+import { MobileTabBar } from '@/components/MobileTabBar';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
   const { isDesktop } = useResponsive();
 
-  return (
+  const tabs = (
     <Tabs
-      tabBar={(props) => <AdaptiveTabBar {...props} />}
+      tabBar={isDesktop ? () => null : (props) => <MobileTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        contentStyle: {
-          backgroundColor: colors.background,
-          marginLeft: isDesktop ? SIDEBAR_WIDTH : 0,
-        },
+        contentStyle: { backgroundColor: colors.background },
       }}
     >
       <Tabs.Screen name="index" />
@@ -28,4 +27,17 @@ export default function TabsLayout() {
       <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
+
+  if (isDesktop) {
+    return (
+      <View style={{ flex: 1, flexDirection: 'row', backgroundColor: colors.background }}>
+        <DesktopSidebar />
+        <View style={{ flex: 1, overflow: 'hidden' }}>
+          {tabs}
+        </View>
+      </View>
+    );
+  }
+
+  return tabs;
 }
