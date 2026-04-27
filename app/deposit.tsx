@@ -8,13 +8,13 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Linking,
   Modal,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Linking, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { supabase } from '@/lib/auth';
 import { getWallet } from '@/lib/api/client';
