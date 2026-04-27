@@ -160,23 +160,28 @@ async function getWalletId(): Promise<string> {
 // ----- Sends -----
 
 export async function sendUsdc(params: { recipientAddress: string; amount: number }): Promise<{ tx_hash: string }> {
-  const walletId = await getWalletId();
-  const fakeHash = '0x' + Math.random().toString(16).slice(2).padEnd(64, '0');
-  const { error } = await supabase.from('transaction').insert({
-    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    wallet_id: walletId,
-    type: 'send',
-    status: 'pending',
-    tx_hash: fakeHash,
-    amount: params.amount,
-    currency: 'USDC',
-    usd_amount: params.amount,
-    to_address: params.recipientAddress,
-    category: 'base',
-    metadata: JSON.stringify({ recipientAddress: params.recipientAddress }),
-  });
-  if (error) throw new Error(error.message);
-  return { tx_hash: fakeHash };
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not signed in');
+
+  if (!API_BASE) throw new Error('API endpoint not configured. Check EXPO_PUBLIC_API_BASE_URL.');
+
+  const res = await fetchWithTimeout(`${API_BASE}/api/wallet/send`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      recipientAddress: params.recipientAddress,
+      amount: params.amount,
+    }),
+  }, 60_000);
+
+  let data: any;
+  try { data = await res.json(); } catch { throw new Error('Unexpected server response.'); }
+
+  if (!res.ok) throw new Error(data?.error || `Send failed (${res.status})`);
+  return { tx_hash: data.txHash };
 }
 
 /**

@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { Linking, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { supabase } from '@/lib/auth';
 import { getWallet } from '@/lib/api/client';
@@ -157,9 +158,14 @@ export default function DepositScreen() {
 
         if (sessionToken) {
           const url = `https://pay.coinbase.com/buy/select-asset?sessionToken=${sessionToken}`;
-          console.log('[DEPOSIT] Opening Coinbase in-app:', url);
-          // Open in-app WebView modal instead of Safari
-          setCoinbaseUrl(url);
+          console.log('[DEPOSIT] Opening Coinbase:', url);
+          if (Platform.OS === 'web') {
+            // On web, open in a new tab (WebView is native-only)
+            window.open(url, '_blank', 'noopener,noreferrer');
+            setDone(true);
+          } else {
+            setCoinbaseUrl(url);
+          }
         } else {
           throw new Error('No session token received. Response: ' + JSON.stringify(data));
         }
