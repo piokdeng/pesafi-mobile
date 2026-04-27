@@ -21,12 +21,14 @@ import { usePreferences } from '@/lib/preferences';
 import { useNotifications } from '@/lib/notifications';
 import { getWallet, getTransactions, getContacts, refreshWalletBalance } from '@/lib/api/client';
 import type { Wallet, Transaction, Contact } from '@/lib/types';
+import { useResponsive, MAX_CONTENT_WIDTH } from '@/lib/responsive';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { prefs } = usePreferences();
   const { colors, toggle: toggleTheme, isDark } = useTheme();
+  const { isDesktop } = useResponsive();
   const { unreadCount } = useNotifications();
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -93,10 +95,11 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, isDesktop && styles.scrollDesktop]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
       >
+        <View style={isDesktop ? styles.contentWrapper : undefined}>
         {/* Top bar: avatar + theme toggle (left) — greeting (right) */}
         <View style={styles.topBar}>
           <View style={styles.topLeft}>
@@ -203,6 +206,7 @@ export default function HomeScreen() {
             ))
           )}
         </Card>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -211,6 +215,8 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: Spacing.xxl },
+  scrollDesktop: { alignItems: 'center', paddingHorizontal: Spacing.xxl, paddingTop: Spacing.xxl },
+  contentWrapper: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, gap: Spacing.lg },
   centerLoad: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },

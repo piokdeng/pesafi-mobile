@@ -17,10 +17,12 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth';
 import { Colors, Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { useResponsive, MAX_CONTENT_WIDTH } from '@/lib/responsive';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const { isDesktop } = useResponsive();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +49,11 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={[styles.scroll, isDesktop && styles.scrollDesktop]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={isDesktop ? styles.card : undefined}>
           {/* Logo / hero */}
           <View style={styles.heroWrap}>
             <LinearGradient
@@ -98,6 +104,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </Link>
           </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -110,6 +117,19 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: Spacing.xl,
     justifyContent: 'center',
+  },
+  scrollDesktop: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  card: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    backgroundColor: Colors.card,
+    borderRadius: 20,
+    padding: Spacing.xxl,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   heroWrap: {
     alignItems: 'center',
