@@ -17,11 +17,13 @@ import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/theme';
 import { Spacing, FontSize, FontWeight } from '@/constants/theme';
+import { useResponsive, MAX_CONTENT_WIDTH } from '@/lib/responsive';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { signUp } = useAuth();
   const { colors } = useTheme();
+  const { isDesktop } = useResponsive();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -54,7 +56,11 @@ export default function RegisterScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={[styles.scroll, isDesktop && styles.scrollDesktop]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={isDesktop ? [styles.card, { backgroundColor: colors.card, borderColor: colors.border }] : undefined}>
           <TouchableOpacity onPress={() => router.back()} style={styles.back}>
             <Ionicons name="arrow-back" size={24} color={colors.foreground} />
           </TouchableOpacity>
@@ -117,6 +123,7 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </Link>
           </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -126,6 +133,17 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { flexGrow: 1, padding: Spacing.xl },
+  scrollDesktop: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  card: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    borderRadius: 20,
+    padding: Spacing.xxl,
+    borderWidth: 1,
+  },
   back: { marginBottom: Spacing.lg },
   headerWrap: { marginBottom: Spacing.xl },
   title: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold },
