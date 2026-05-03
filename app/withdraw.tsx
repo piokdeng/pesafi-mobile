@@ -5,14 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -37,7 +37,7 @@ const METHODS: Method[] = [
     title: 'Mobile money',
     subtitle: 'M-Pesa, MTN MoMo (Uganda, Rwanda, SSD, Ghana), Airtel',
     icon: 'phone-portrait',
-    color: Colors.primary,
+    color: '#22C55E',
     badge: 'Instant',
   },
   {
@@ -73,6 +73,7 @@ const METHODS: Method[] = [
 
 export default function WithdrawScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [balance, setBalance] = useState(0);
   const [selected, setSelected] = useState<MethodKey | null>(null);
   const [amount, setAmount] = useState('');
@@ -82,6 +83,7 @@ export default function WithdrawScreen() {
   const [localCurrency, setLocalCurrency] = useState('KES');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getWallet().then((w) => setBalance(w.balance)).catch(() => {});
@@ -98,6 +100,7 @@ export default function WithdrawScreen() {
     (selected === 'mobile_money' && (!phone || !accountName));
 
   const handleSubmit = async () => {
+    setError(null);
     setSubmitting(true);
     try {
       if (selected === 'mobile_money') {
@@ -113,30 +116,30 @@ export default function WithdrawScreen() {
       }
       setDone(true);
     } catch (e: any) {
-      Alert.alert('Withdrawal failed', e.message ?? 'Please try again.');
+      setError(e.message ?? 'Withdrawal failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const reset = () => { setSelected(null); setAmount(''); setPhone(''); setAccountName(''); setDone(false); };
+  const reset = () => { setSelected(null); setAmount(''); setPhone(''); setAccountName(''); setDone(false); setError(null); };
   const method = selected ? METHODS.find((m) => m.key === selected)! : null;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => (selected && !done ? reset() : router.back())} hitSlop={10}>
-            <Ionicons name={selected && !done ? 'arrow-back' : 'close'} size={24} color={Colors.foreground} />
+            <Ionicons name={selected && !done ? 'arrow-back' : 'close'} size={24} color={colors.foreground} />
           </TouchableOpacity>
-          <Text style={styles.title}>{done ? 'Withdrawal sent' : selected ? method!.title : 'Withdraw'}</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>{done ? 'Withdrawal sent' : selected ? method!.title : 'Withdraw'}</Text>
           <View style={{ width: 24 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {!selected && (
             <>
-              <Text style={styles.subtitle}>
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
                 Available: {formatUsd(balance)}. Choose how you want to withdraw.
               </Text>
               {METHODS.map((m) => (
@@ -148,16 +151,16 @@ export default function WithdrawScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={styles.titleRow}>
-                          <Text style={styles.methodTitle}>{m.title}</Text>
+                          <Text style={[styles.methodTitle, { color: colors.foreground }]}>{m.title}</Text>
                           {m.badge && (
-                            <View style={styles.badge}>
-                              <Text style={styles.badgeText}>{m.badge}</Text>
+                            <View style={[styles.badge, { backgroundColor: colors.successBg }]}>
+                              <Text style={[styles.badgeText, { color: colors.success }]}>{m.badge}</Text>
                             </View>
                           )}
                         </View>
-                        <Text style={styles.methodSubtitle}>{m.subtitle}</Text>
+                        <Text style={[styles.methodSubtitle, { color: colors.mutedForeground }]}>{m.subtitle}</Text>
                       </View>
-                      <Ionicons name="chevron-forward" size={20} color={Colors.mutedForeground} />
+                      <Ionicons name="chevron-forward" size={20} color={colors.mutedForeground} />
                     </View>
                   </Card>
                 </TouchableOpacity>
@@ -183,7 +186,7 @@ export default function WithdrawScreen() {
                   <View style={{ height: Spacing.md }} />
                   <Input label="Account name" value={accountName} onChangeText={setAccountName} placeholder="Mary Wanjiku" autoCapitalize="words" />
                   {usdAmount > 0 && (
-                    <Text style={styles.conv}>≈ {formatLocal(usdAmount, localCurrency)}</Text>
+                    <Text style={[styles.conv, { color: colors.success }]}>≈ {formatLocal(usdAmount, localCurrency)}</Text>
                   )}
                 </>
               )}
@@ -205,19 +208,24 @@ export default function WithdrawScreen() {
               )}
 
               {selected === 'yellow_card' && (
-                <Text style={[styles.hint, { marginTop: Spacing.md }]}>
+                <Text style={[styles.hint, { color: colors.mutedForeground, marginTop: Spacing.md }]}>
                   You'll be redirected to Yellow Card to receive funds in your local currency.
                   Supported: NGN, KES, GHS, ZAR, UGX, TZS, XAF, XOF.
                 </Text>
               )}
 
               {selected === 'applepay' && (
-                <Text style={[styles.hint, { marginTop: Spacing.md }]}>
+                <Text style={[styles.hint, { color: colors.mutedForeground, marginTop: Spacing.md }]}>
                   Funds go straight to your Apple Cash balance. Confirm with Face ID next.
                 </Text>
               )}
 
               <View style={{ height: Spacing.lg }} />
+              {error && (
+                <Text style={[styles.errorText, { color: colors.destructive, backgroundColor: colors.destructiveBg }]}>
+                  {error}
+                </Text>
+              )}
               <Button
                 title={`Withdraw ${formatUsd(usdAmount)}`}
                 onPress={handleSubmit}
@@ -231,11 +239,11 @@ export default function WithdrawScreen() {
           {done && (
             <Card>
               <View style={styles.successWrap}>
-                <View style={styles.successIcon}>
+                <View style={[styles.successIcon, { backgroundColor: colors.primary }]}>
                   <Ionicons name="checkmark" size={40} color="white" />
                 </View>
-                <Text style={styles.successTitle}>Withdrawal sent</Text>
-                <Text style={styles.successText}>
+                <Text style={[styles.successTitle, { color: colors.foreground }]}>Withdrawal sent</Text>
+                <Text style={[styles.successText, { color: colors.mutedForeground }]}>
                   {formatUsd(usdAmount)} via {method?.title} is on its way.
                 </Text>
                 <Button title="Done" onPress={() => router.back()} fullWidth />
@@ -249,22 +257,28 @@ export default function WithdrawScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.md },
-  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.foreground },
+  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   scroll: { padding: Spacing.lg },
-  subtitle: { color: Colors.mutedForeground, marginBottom: Spacing.lg },
+  subtitle: { marginBottom: Spacing.lg },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   iconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  methodTitle: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.foreground },
-  methodSubtitle: { fontSize: FontSize.sm, color: Colors.mutedForeground, marginTop: 2 },
-  badge: { backgroundColor: Colors.successBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full },
-  badgeText: { fontSize: 10, fontWeight: FontWeight.bold, color: Colors.success, letterSpacing: 0.3 },
-  hint: { fontSize: FontSize.sm, color: Colors.mutedForeground, lineHeight: 20 },
-  conv: { fontSize: FontSize.sm, color: Colors.success, fontWeight: FontWeight.medium, marginTop: Spacing.xs },
+  methodTitle: { fontSize: FontSize.base, fontWeight: FontWeight.semibold },
+  methodSubtitle: { fontSize: FontSize.sm, marginTop: 2 },
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full },
+  badgeText: { fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.3 },
+  hint: { fontSize: FontSize.sm, lineHeight: 20 },
+  conv: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, marginTop: Spacing.xs },
+  errorText: {
+    fontSize: FontSize.sm,
+    padding: Spacing.sm,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.sm,
+  },
   successWrap: { alignItems: 'center', paddingVertical: Spacing.lg, gap: Spacing.md },
-  successIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
-  successTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.foreground },
-  successText: { fontSize: FontSize.base, color: Colors.mutedForeground, textAlign: 'center' },
+  successIcon: { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
+  successTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold },
+  successText: { fontSize: FontSize.base, textAlign: 'center' },
 });

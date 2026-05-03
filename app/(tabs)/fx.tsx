@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { convertLocalToUsd, convertUsdToLocal, formatUsd } from '@/lib/currency';
 import { useNotifications } from '@/lib/notifications';
+import { useResponsive } from '@/lib/responsive';
 
 type CurrencyInfo = {
   code: string;
@@ -43,6 +44,7 @@ export default function FxTab() {
   const router = useRouter();
   const { colors } = useTheme();
   const { add: addNotification } = useNotifications();
+  const { isDesktop } = useResponsive();
 
   const [selected, setSelected] = useState<CurrencyInfo>(CORRIDORS[0]);
   const [direction, setDirection] = useState<'localToUsd' | 'usdToLocal'>('localToUsd');
@@ -82,13 +84,17 @@ export default function FxTab() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, isDesktop && styles.scrollDesktop]} showsVerticalScrollIndicator={false}>
+        <View style={isDesktop ? styles.inner : undefined}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.foreground }]}>Foreign Exchange</Text>
         </View>
 
+        <View style={isDesktop ? styles.twoCol : undefined}>
+        {/* Left column on desktop: hero + corridors list */}
+        <View style={isDesktop ? styles.leftCol : undefined}>
         {/* Hero rate card (selected currency) */}
-        <View style={{ paddingHorizontal: Spacing.lg }}>
+        <View style={{ paddingHorizontal: isDesktop ? 0 : Spacing.lg }}>
           <LinearGradient
             colors={selected.code === 'SSP' ? [colors.fxStart, colors.fxEnd] : [colors.gradientStart, colors.gradientEnd]}
             start={{ x: 0, y: 0 }}
@@ -118,8 +124,59 @@ export default function FxTab() {
           </LinearGradient>
         </View>
 
+        {/* All corridors list */}
+        <View style={{ paddingHorizontal: isDesktop ? 0 : Spacing.lg, marginTop: Spacing.lg }}>
+          <Text style={[styles.listTitle, { color: colors.mutedForeground }]}>
+            ALL CORRIDORS
+          </Text>
+          <View style={[styles.listWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {CORRIDORS.map((c, i) => {
+              const isSelected = selected.code === c.code;
+              const effRate = c.rate * (1 + c.spread);
+              return (
+                <TouchableOpacity
+                  key={c.code}
+                  onPress={() => setSelected(c)}
+                  style={styles.listRow}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.listFlag}>{c.flag}</Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.listNameRow}>
+                      <Text style={[styles.listCode, { color: colors.foreground }]}>{c.code}</Text>
+                      {c.featured && (
+                        <View style={[styles.featuredPill, { backgroundColor: colors.warning + '25' }]}>
+                          <Text style={[styles.featuredText, { color: colors.warning }]}>FEATURED</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.listName, { color: colors.mutedForeground }]}>{c.name}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[styles.listRate, { color: colors.foreground }]}>
+                      {Math.round(effRate).toLocaleString()}
+                    </Text>
+                    <Text style={[styles.listSpread, { color: colors.mutedForeground }]}>
+                      +{(c.spread * 100).toFixed(1)}% spread
+                    </Text>
+                  </View>
+                  {isSelected && (
+                    <Ionicons name="checkmark-circle" size={18} color={colors.primary} style={{ marginLeft: 8 }} />
+                  )}
+                  {i < CORRIDORS.length - 1 && (
+                    <View style={[styles.listDivider, { backgroundColor: colors.border }]} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+        </View>{/* end left col */}
+
+        {/* Right column on desktop: converter */}
+        <View style={isDesktop ? styles.rightCol : undefined}>
         {/* Converter */}
-        <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>
+        <View style={{ paddingHorizontal: isDesktop ? 0 : Spacing.lg, marginTop: isDesktop ? 0 : Spacing.lg }}>
           <Card>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Convert</Text>
 
@@ -194,58 +251,13 @@ export default function FxTab() {
             />
           </Card>
         </View>
-
-        {/* All corridors list */}
-        <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>
-          <Text style={[styles.listTitle, { color: colors.mutedForeground }]}>
-            ALL CORRIDORS
-          </Text>
-          <View style={[styles.listWrap, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {CORRIDORS.map((c, i) => {
-              const isSelected = selected.code === c.code;
-              const effRate = c.rate * (1 + c.spread);
-              return (
-                <TouchableOpacity
-                  key={c.code}
-                  onPress={() => setSelected(c)}
-                  style={styles.listRow}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.listFlag}>{c.flag}</Text>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.listNameRow}>
-                      <Text style={[styles.listCode, { color: colors.foreground }]}>{c.code}</Text>
-                      {c.featured && (
-                        <View style={[styles.featuredPill, { backgroundColor: colors.warning + '25' }]}>
-                          <Text style={[styles.featuredText, { color: colors.warning }]}>FEATURED</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={[styles.listName, { color: colors.mutedForeground }]}>{c.name}</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[styles.listRate, { color: colors.foreground }]}>
-                      {Math.round(effRate).toLocaleString()}
-                    </Text>
-                    <Text style={[styles.listSpread, { color: colors.mutedForeground }]}>
-                      +{(c.spread * 100).toFixed(1)}% spread
-                    </Text>
-                  </View>
-                  {isSelected && (
-                    <Ionicons name="checkmark-circle" size={18} color={colors.primary} style={{ marginLeft: 8 }} />
-                  )}
-                  {i < CORRIDORS.length - 1 && (
-                    <View style={[styles.listDivider, { backgroundColor: colors.border }]} />
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+        </View>{/* end right col */}
+        </View>{/* end twoCol */}
 
         <Text style={[styles.disclaimer, { color: colors.mutedForeground }]}>
           Rates are illustrative and will be replaced with live feeds as each corridor goes live.
         </Text>
+        </View>{/* end inner */}
       </ScrollView>
     </SafeAreaView>
   );
@@ -254,6 +266,11 @@ export default function FxTab() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingBottom: Spacing.xxl },
+  scrollDesktop: { alignItems: 'center', paddingHorizontal: 40, paddingVertical: 32 },
+  inner: { width: '100%', maxWidth: 1000 },
+  twoCol: { flexDirection: 'row', gap: Spacing.xl, alignItems: 'flex-start' },
+  leftCol: { flex: 1 },
+  rightCol: { width: 360 },
   header: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.md },
   title: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold },
 

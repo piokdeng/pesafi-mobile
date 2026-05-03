@@ -5,14 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Colors, Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -34,10 +34,12 @@ export default function SendScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ scannedAddress?: string }>();
   const { user } = useAuth();
+  const { colors } = useTheme();
 
   const [mode, setMode] = useState<Mode>('choose');
   const [balance, setBalance] = useState(0);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Wallet send
   const [recipient, setRecipient] = useState('');
@@ -90,18 +92,20 @@ export default function SendScreen() {
     (mode === 'mobile' && (!phone || !accountName));
 
   const handleSendWallet = async () => {
+    setError(null);
     setSending(true);
     try {
       await sendUsdc({ recipientAddress: recipient.trim(), amount: usdAmount });
       setMode('success');
     } catch (e: any) {
-      Alert.alert('Send failed', e.message ?? 'Please try again.');
+      setError(e.message ?? 'Send failed. Please try again.');
     } finally {
       setSending(false);
     }
   };
 
   const handleSendMobile = async () => {
+    setError(null);
     setSending(true);
     try {
       await sendToMobileMoney({
@@ -113,28 +117,28 @@ export default function SendScreen() {
       });
       setMode('success');
     } catch (e: any) {
-      Alert.alert('Send failed', e.message ?? 'Please try again.');
+      setError(e.message ?? 'Send failed. Please try again.');
     } finally {
       setSending(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => (mode === 'choose' || mode === 'success' ? router.back() : setMode('choose'))}
+            onPress={() => { setError(null); mode === 'choose' || mode === 'success' ? router.back() : setMode('choose'); }}
             hitSlop={10}
           >
             <Ionicons
               name={mode === 'choose' || mode === 'success' ? 'close' : 'arrow-back'}
               size={24}
-              color={Colors.foreground}
+              color={colors.foreground}
             />
           </TouchableOpacity>
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: colors.foreground }]}>
             {mode === 'choose'  ? 'Send money' :
              mode === 'wallet'  ? 'Send to wallet' :
              mode === 'mobile'  ? 'Send to mobile money' :
@@ -147,24 +151,24 @@ export default function SendScreen() {
           {/* CHOOSER */}
           {mode === 'choose' && (
             <>
-              <Text style={styles.helperText}>How would you like to send?</Text>
+              <Text style={[styles.helperText, { color: colors.mutedForeground }]}>How would you like to send?</Text>
               <ChoiceCard
                 icon="wallet-outline"
-                color={Colors.send}
+                color={colors.send}
                 title="To wallet address"
                 subtitle="Send USDC to any wallet on Base"
                 onPress={() => setMode('wallet')}
               />
               <ChoiceCard
                 icon="phone-portrait-outline"
-                color={Colors.primary}
+                color={colors.primary}
                 title="To mobile money"
                 subtitle="M-Pesa, MTN, Airtel"
                 onPress={() => setMode('mobile')}
               />
               <ChoiceCard
                 icon="qr-code-outline"
-                color={Colors.accent}
+                color={colors.accent}
                 title="Scan QR code"
                 subtitle="Scan a wallet address"
                 onPress={() => router.push('/scan')}
@@ -183,7 +187,7 @@ export default function SendScreen() {
                 autoCapitalize="none"
                 rightAdornment={
                   <TouchableOpacity onPress={() => router.push('/scan')} hitSlop={8}>
-                    <Ionicons name="qr-code-outline" size={20} color={Colors.primary} />
+                    <Ionicons name="qr-code-outline" size={20} color={colors.primary} />
                   </TouchableOpacity>
                 }
               />
@@ -205,13 +209,18 @@ export default function SendScreen() {
                 }`}
               />
               {amount && parseFloat(amount) > 0 && (
-                <Text style={styles.conversion}>
+                <Text style={[styles.conversion, { color: colors.success }]}>
                   ≈ {currency === 'USD'
                     ? formatLocal(usdAmount, preferredCurrency)
                     : formatUsd(usdAmount)}
                 </Text>
               )}
               <View style={{ height: Spacing.lg }} />
+              {error && (
+                <Text style={[styles.errorText, { color: colors.destructive, backgroundColor: colors.destructiveBg }]}>
+                  {error}
+                </Text>
+              )}
               <Button
                 title={`Send ${formatUsd(usdAmount)}`}
                 onPress={handleSendWallet}
@@ -242,19 +251,7 @@ export default function SendScreen() {
                 autoCapitalize="words"
               />
               <View style={{ height: Spacing.md }} />
-              <View style={styles.providerRow}>
-                {(['MPESA', 'MTN', 'AIRTEL'] as const).map((p) => (
-                  <TouchableOpacity
-                    key={p}
-                    onPress={() => setProvider(p)}
-                    style={[styles.providerChip, provider === p && styles.providerChipActive]}
-                  >
-                    <Text style={[styles.providerText, provider === p && styles.providerTextActive]}>
-                      {p === 'MPESA' ? 'M-Pesa' : p === 'MTN' ? 'MTN' : 'Airtel'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ProviderRow provider={provider} onSelect={setProvider} />
               <View style={{ height: Spacing.md }} />
               <CurrencyToggle value={currency} onChange={setCurrency} localLabel={localCurrency} />
               <View style={{ height: Spacing.md }} />
@@ -267,13 +264,18 @@ export default function SendScreen() {
                 helperText={`Available: ${formatUsd(balance)}`}
               />
               {amount && parseFloat(amount) > 0 && (
-                <Text style={styles.conversion}>
+                <Text style={[styles.conversion, { color: colors.success }]}>
                   ≈ {currency === 'USD'
                     ? formatLocal(usdAmount, localCurrency)
                     : formatUsd(usdAmount)}
                 </Text>
               )}
               <View style={{ height: Spacing.lg }} />
+              {error && (
+                <Text style={[styles.errorText, { color: colors.destructive, backgroundColor: colors.destructiveBg }]}>
+                  {error}
+                </Text>
+              )}
               <Button
                 title={`Send ${formatUsd(usdAmount)}`}
                 onPress={handleSendMobile}
@@ -288,11 +290,11 @@ export default function SendScreen() {
           {mode === 'success' && (
             <Card>
               <View style={styles.successWrap}>
-                <View style={styles.successIcon}>
+                <View style={[styles.successIcon, { backgroundColor: colors.primary }]}>
                   <Ionicons name="checkmark" size={40} color="white" />
                 </View>
-                <Text style={styles.successTitle}>Sent successfully</Text>
-                <Text style={styles.successText}>
+                <Text style={[styles.successTitle, { color: colors.foreground }]}>Sent successfully</Text>
+                <Text style={[styles.successText, { color: colors.mutedForeground }]}>
                   {formatUsd(usdAmount)} is on its way. The recipient will be notified.
                 </Text>
                 <Button title="Done" onPress={() => router.back()} fullWidth />
@@ -318,6 +320,7 @@ function ChoiceCard({
   subtitle: string;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
       <Card style={{ marginBottom: Spacing.md }}>
@@ -326,13 +329,44 @@ function ChoiceCard({
             <Ionicons name={icon} size={24} color={color} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.choiceTitle}>{title}</Text>
-            <Text style={styles.choiceSubtitle}>{subtitle}</Text>
+            <Text style={[styles.choiceTitle, { color: colors.foreground }]}>{title}</Text>
+            <Text style={[styles.choiceSubtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.mutedForeground} />
+          <Ionicons name="chevron-forward" size={20} color={colors.mutedForeground} />
         </View>
       </Card>
     </TouchableOpacity>
+  );
+}
+
+function ProviderRow({
+  provider,
+  onSelect,
+}: {
+  provider: MobileMoneyProvider;
+  onSelect: (p: MobileMoneyProvider) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.providerRow}>
+      {(['MPESA', 'MTN', 'AIRTEL'] as const).map((p) => {
+        const active = provider === p;
+        return (
+          <TouchableOpacity
+            key={p}
+            onPress={() => onSelect(p)}
+            style={[
+              styles.providerChip,
+              { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary : colors.card },
+            ]}
+          >
+            <Text style={[styles.providerText, { color: active ? '#08101D' : colors.foreground }]}>
+              {p === 'MPESA' ? 'M-Pesa' : p === 'MTN' ? 'MTN' : 'Airtel'}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
   );
 }
 
@@ -345,9 +379,10 @@ function CurrencyToggle({
   onChange: (v: 'USD' | 'LOCAL') => void;
   localLabel: string;
 }) {
+  const { colors } = useTheme();
   return (
     <View>
-      <Text style={styles.toggleLabel}>Currency</Text>
+      <Text style={[styles.toggleLabel, { color: colors.foreground }]}>Currency</Text>
       <View style={styles.toggleRow}>
         {(['USD', 'LOCAL'] as const).map((c) => {
           const active = value === c;
@@ -355,9 +390,12 @@ function CurrencyToggle({
             <TouchableOpacity
               key={c}
               onPress={() => onChange(c)}
-              style={[styles.toggleBtn, active && styles.toggleBtnActive]}
+              style={[
+                styles.toggleBtn,
+                { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primary : colors.card },
+              ]}
             >
-              <Text style={[styles.toggleText, active && styles.toggleTextActive]}>
+              <Text style={[styles.toggleText, { color: active ? '#08101D' : colors.foreground }]}>
                 {c === 'USD' ? 'USD' : localLabel}
               </Text>
             </TouchableOpacity>
@@ -369,7 +407,7 @@ function CurrencyToggle({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -378,9 +416,9 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
   },
-  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.foreground },
+  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   scroll: { padding: Spacing.lg },
-  helperText: { color: Colors.mutedForeground, marginBottom: Spacing.lg },
+  helperText: { marginBottom: Spacing.lg },
 
   choiceIcon: {
     width: 48,
@@ -389,24 +427,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  choiceTitle: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.foreground },
-  choiceSubtitle: { fontSize: FontSize.sm, color: Colors.mutedForeground, marginTop: 2 },
+  choiceTitle: { fontSize: FontSize.base, fontWeight: FontWeight.semibold },
+  choiceSubtitle: { fontSize: FontSize.sm, marginTop: 2 },
 
-  toggleLabel: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.foreground, marginBottom: Spacing.xs },
+  toggleLabel: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, marginBottom: Spacing.xs },
   toggleRow: { flexDirection: 'row', gap: Spacing.sm },
   toggleBtn: {
     flex: 1,
     height: 44,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.card,
   },
-  toggleBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  toggleText: { fontWeight: FontWeight.semibold, color: Colors.foreground },
-  toggleTextActive: { color: '#08101D' },
+  toggleText: { fontWeight: FontWeight.semibold },
 
   providerRow: { flexDirection: 'row', gap: Spacing.sm },
   providerChip: {
@@ -414,18 +448,13 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.card,
   },
-  providerChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  providerText: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.foreground },
-  providerTextActive: { color: '#08101D' },
+  providerText: { fontSize: FontSize.sm, fontWeight: FontWeight.medium },
 
   conversion: {
     fontSize: FontSize.sm,
-    color: Colors.success,
     fontWeight: FontWeight.medium,
     marginTop: Spacing.xs,
   },
@@ -435,10 +464,15 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  successTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.foreground },
-  successText: { fontSize: FontSize.base, color: Colors.mutedForeground, textAlign: 'center', marginBottom: Spacing.md },
+  successTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold },
+  successText: { fontSize: FontSize.base, textAlign: 'center', marginBottom: Spacing.md },
+  errorText: {
+    fontSize: FontSize.sm,
+    padding: Spacing.sm,
+    borderRadius: Radius.sm,
+    marginBottom: Spacing.sm,
+  },
 });

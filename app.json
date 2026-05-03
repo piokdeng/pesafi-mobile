@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pesafi",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash.png",
@@ -29,11 +29,7 @@
       "package": "ai.pesafi.app",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.READ_CONTACTS",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.READ_CONTACTS",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.READ_CONTACTS"
       ]
     },
     "web": {

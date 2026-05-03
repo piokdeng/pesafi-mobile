@@ -14,7 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, FontSize, FontWeight, Radius, Shadow } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
+import { Spacing, FontSize, FontWeight, Radius, Shadow } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -23,13 +24,10 @@ import { formatUsd } from '@/lib/currency';
 
 /**
  * South Sudan FX screen.
- *
- * Ports src/app/dashboard/fx/page.tsx from the web app: lets users
- * estimate SSP→USDC conversion at the published PesaFi rate, request
- * a quote, and learn about the Business FX line.
  */
 export default function FxScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [sspAmount, setSspAmount] = useState('1000000');
 
   const parsedSsp = useMemo(() => {
@@ -56,31 +54,31 @@ export default function FxScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={10}>
-            <Ionicons name="arrow-back" size={24} color={Colors.foreground} />
+            <Ionicons name="arrow-back" size={24} color={colors.foreground} />
           </TouchableOpacity>
-          <Text style={styles.title}>South Sudan FX</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>South Sudan FX</Text>
           <View style={{ width: 24 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             Convert SSP to USDC at the published PesaFi rate. Pay in through mobile money;
             dollars credit to this wallet after treasury confirmation.
           </Text>
 
-          {/* Live rate display */}
+          {/* Live rate display — intentionally dark card regardless of theme */}
           <LinearGradient
             colors={['#1F2937', '#111827']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.rateCard}
+            style={[styles.rateCard, { borderColor: colors.border }]}
           >
             <View style={styles.rateRow}>
               <View>
@@ -112,9 +110,9 @@ export default function FxScreen() {
           <Card>
             <View style={styles.cardHeader}>
               <View style={[styles.cardIcon, { backgroundColor: 'rgba(34,197,94,0.15)' }]}>
-                <Ionicons name="phone-portrait-outline" size={20} color={Colors.primary} />
+                <Ionicons name="phone-portrait-outline" size={20} color={colors.primary} />
               </View>
-              <Text style={styles.cardTitle}>Estimate conversion</Text>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>Estimate conversion</Text>
             </View>
 
             <View style={{ height: Spacing.md }} />
@@ -127,12 +125,12 @@ export default function FxScreen() {
               keyboardType="decimal-pad"
             />
 
-            <View style={styles.receiveBox}>
-              <Text style={styles.receiveLabel}>You receive (approx.)</Text>
-              <Text style={styles.receiveAmount}>
+            <View style={[styles.receiveBox, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <Text style={[styles.receiveLabel, { color: colors.mutedForeground }]}>You receive (approx.)</Text>
+              <Text style={[styles.receiveAmount, { color: colors.foreground }]}>
                 {parsedSsp > 0 ? formatUsd(usdOut) : '—'}
               </Text>
-              <Text style={styles.receiveHint}>
+              <Text style={[styles.receiveHint, { color: colors.mutedForeground }]}>
                 At ~{Math.round(rate).toLocaleString()} SSP per 1 USD
               </Text>
             </View>
@@ -146,7 +144,7 @@ export default function FxScreen() {
               disabled={parsedSsp <= 0}
             />
 
-            <Text style={styles.disclaimer}>
+            <Text style={[styles.disclaimer, { color: colors.mutedForeground }]}>
               This action reserves your intent; operations will confirm KYC, limits, and
               mobile-money receipt as we enable South Sudan production flows.
             </Text>
@@ -156,12 +154,12 @@ export default function FxScreen() {
           <Card style={{ marginTop: Spacing.lg }}>
             <View style={styles.cardHeader}>
               <View style={[styles.cardIcon, { backgroundColor: 'rgba(249,115,22,0.15)' }]}>
-                <Ionicons name="business-outline" size={20} color={Colors.accent} />
+                <Ionicons name="business-outline" size={20} color={colors.accent} />
               </View>
-              <Text style={styles.cardTitle}>Business FX</Text>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>Business FX</Text>
             </View>
 
-            <Text style={styles.businessText}>
+            <Text style={[styles.businessText, { color: colors.mutedForeground }]}>
               Companies and NGOs can open a Business FX line: deposit operating SSP, convert
               at a locked screen rate, and pay suppliers from the same ledger — keeping
               audits clean.
@@ -182,7 +180,7 @@ export default function FxScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -191,11 +189,10 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
   },
-  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.foreground },
+  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
   subtitle: {
     fontSize: FontSize.sm,
-    color: Colors.mutedForeground,
     lineHeight: 20,
     marginBottom: Spacing.lg,
   },
@@ -205,7 +202,6 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
     ...Shadow.card,
   },
   rateRow: {
@@ -213,9 +209,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  // Rate card text uses white because the gradient is always dark
   rateLabel: {
     fontSize: FontSize.xs,
-    color: Colors.mutedForeground,
+    color: '#94A3B8',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
@@ -223,12 +220,12 @@ const styles = StyleSheet.create({
   rateValue: {
     fontSize: FontSize.xxl,
     fontWeight: FontWeight.bold,
-    color: Colors.foreground,
+    color: '#F8FAFC',
   },
   rateValueSmall: {
     fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
-    color: Colors.mutedForeground,
+    color: '#94A3B8',
   },
   spreadBadge: {
     backgroundColor: 'rgba(245,158,11,0.15)',
@@ -237,18 +234,18 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   spreadText: {
-    color: Colors.warning,
+    color: '#F59E0B',
     fontSize: FontSize.xs,
     fontWeight: FontWeight.semibold,
   },
   rateDivider: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     marginVertical: Spacing.md,
   },
   rateMuted: {
     fontSize: FontSize.xs,
-    color: Colors.mutedForeground,
+    color: '#94A3B8',
   },
   liveDot: {
     flexDirection: 'row',
@@ -259,12 +256,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.success,
+    backgroundColor: '#22C55E',
   },
   liveText: {
     fontSize: 10,
     fontWeight: FontWeight.bold,
-    color: Colors.success,
+    color: '#22C55E',
     letterSpacing: 0.5,
   },
 
@@ -283,41 +280,33 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: FontSize.lg,
     fontWeight: FontWeight.semibold,
-    color: Colors.foreground,
   },
 
   receiveBox: {
     marginTop: Spacing.md,
     padding: Spacing.md,
     borderRadius: Radius.md,
-    backgroundColor: Colors.muted,
     borderWidth: 1,
-    borderColor: Colors.border,
   },
   receiveLabel: {
     fontSize: FontSize.sm,
-    color: Colors.mutedForeground,
   },
   receiveAmount: {
     fontSize: FontSize.xxl,
     fontWeight: FontWeight.bold,
-    color: Colors.foreground,
     marginTop: 4,
   },
   receiveHint: {
     fontSize: FontSize.xs,
-    color: Colors.mutedForeground,
     marginTop: 4,
   },
   disclaimer: {
     fontSize: FontSize.xs,
-    color: Colors.mutedForeground,
     lineHeight: 16,
     marginTop: Spacing.md,
   },
   businessText: {
     fontSize: FontSize.sm,
-    color: Colors.mutedForeground,
     lineHeight: 20,
     marginTop: Spacing.md,
   },

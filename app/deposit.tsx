@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,15 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Modal,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { WebView } from 'react-native-webview';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/auth';
 import { getWallet } from '@/lib/api/client';
-import { Colors, Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
+import { Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -64,7 +63,7 @@ const METHODS: Method[] = [
     title: 'Mobile money',
     subtitle: 'M-Pesa, MTN MoMo, Airtel Money',
     icon: 'phone-portrait',
-    color: Colors.primary,
+    color: '#22C55E',
   },
   {
     key: 'yellow_card',
@@ -85,6 +84,7 @@ const METHODS: Method[] = [
 
 export default function DepositScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [selected, setSelected] = useState<MethodKey | null>(null);
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('');
@@ -93,28 +93,10 @@ export default function DepositScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
-  // In-app Coinbase WebView state
-  const [coinbaseUrl, setCoinbaseUrl] = useState<string | null>(null);
-  const [webviewLoading, setWebviewLoading] = useState(true);
-  const webviewRef = useRef<WebView>(null);
-
   const handlePhone = (val: string) => {
     setPhone(val);
     const d = detectCountryFromPhone(val);
     if (d) { setProvider(d.provider); setLocalCurrency(d.currency); }
-  };
-
-  const closeCoinbase = async () => {
-    setCoinbaseUrl(null);
-    setWebviewLoading(true);
-    // Refresh balance after closing Coinbase
-    try {
-      const updated = await getWallet('personal');
-      console.log('[DEPOSIT] Balance after Coinbase:', updated.balance);
-    } catch (e) {
-      console.warn('[DEPOSIT] Balance refresh failed', e);
-    }
-    setDone(true);
   };
 
   const handleSubmit = async () => {
@@ -157,9 +139,10 @@ export default function DepositScreen() {
 
         if (sessionToken) {
           const url = `https://pay.coinbase.com/buy/select-asset?sessionToken=${sessionToken}`;
-          console.log('[DEPOSIT] Opening Coinbase in-app:', url);
-          // Open in-app WebView modal instead of Safari
-          setCoinbaseUrl(url);
+          await WebBrowser.openBrowserAsync(url, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+          });
+          setDone(true);
         } else {
           throw new Error('No session token received. Response: ' + JSON.stringify(data));
         }
@@ -190,13 +173,13 @@ export default function DepositScreen() {
   const method = selected ? METHODS.find((m) => m.key === selected)! : null;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => (selected && !done ? reset() : router.back())} hitSlop={10}>
-            <Ionicons name={selected && !done ? 'arrow-back' : 'close'} size={24} color={Colors.foreground} />
+            <Ionicons name={selected && !done ? 'arrow-back' : 'close'} size={24} color={colors.foreground} />
           </TouchableOpacity>
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: colors.foreground }]}>
             {done ? 'Deposit initiated' : selected ? method!.title : 'Add money'}
           </Text>
           <View style={{ width: 24 }} />
@@ -206,7 +189,7 @@ export default function DepositScreen() {
           {/* STEP 1: pick method */}
           {!selected && (
             <>
-              <Text style={styles.subtitle}>Choose how you want to add money to your wallet.</Text>
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Choose how you want to add money to your wallet.</Text>
               {METHODS.map((m) => (
                 <TouchableOpacity
                   key={m.key}
@@ -220,16 +203,16 @@ export default function DepositScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={styles.titleRow}>
-                          <Text style={styles.methodTitle}>{m.title}</Text>
+                          <Text style={[styles.methodTitle, { color: colors.foreground }]}>{m.title}</Text>
                           {m.badge && (
-                            <View style={styles.badge}>
-                              <Text style={styles.badgeText}>{m.badge}</Text>
+                            <View style={[styles.badge, { backgroundColor: colors.successBg }]}>
+                              <Text style={[styles.badgeText, { color: colors.success }]}>{m.badge}</Text>
                             </View>
                           )}
                         </View>
-                        <Text style={styles.methodSubtitle}>{m.subtitle}</Text>
+                        <Text style={[styles.methodSubtitle, { color: colors.mutedForeground }]}>{m.subtitle}</Text>
                       </View>
-                      <Ionicons name="chevron-forward" size={20} color={Colors.mutedForeground} />
+                      <Ionicons name="chevron-forward" size={20} color={colors.mutedForeground} />
                     </View>
                   </Card>
                 </TouchableOpacity>
@@ -265,7 +248,7 @@ export default function DepositScreen() {
               {(selected === 'card' || selected === 'ach' || selected === 'applepay') && (
                 <>
                   <View style={{ height: Spacing.md }} />
-                  <Text style={styles.hint}>
+                  <Text style={[styles.hint, { color: colors.mutedForeground }]}>
                     You'll complete payment securely{selected === 'card' ? ' with your card' : selected === 'ach' ? ' via bank transfer' : ' with Apple Pay'}. Funds credit your PesaFi wallet once confirmed.
                   </Text>
                 </>
@@ -274,7 +257,7 @@ export default function DepositScreen() {
               {selected === 'yellow_card' && (
                 <>
                   <View style={{ height: Spacing.md }} />
-                  <Text style={styles.hint}>
+                  <Text style={[styles.hint, { color: colors.mutedForeground }]}>
                     You'll be redirected to Yellow Card to complete payment in your local currency.
                     Supported: NGN, KES, GHS, ZAR, UGX, TZS, XAF, XOF.
                   </Text>
@@ -296,11 +279,11 @@ export default function DepositScreen() {
           {done && (
             <Card>
               <View style={styles.successWrap}>
-                <View style={styles.successIcon}>
+                <View style={[styles.successIcon, { backgroundColor: colors.primary }]}>
                   <Ionicons name="checkmark" size={40} color="white" />
                 </View>
-                <Text style={styles.successTitle}>Deposit initiated</Text>
-                <Text style={styles.successText}>
+                <Text style={[styles.successTitle, { color: colors.foreground }]}>Deposit initiated</Text>
+                <Text style={[styles.successText, { color: colors.mutedForeground }]}>
                   {formatUsd(parseFloat(amount) || 0)} via {method?.title}. It will appear in your balance shortly.
                 </Text>
                 <Button title="Done" onPress={() => router.back()} fullWidth />
@@ -309,88 +292,12 @@ export default function DepositScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* ── COINBASE IN-APP WEBVIEW MODAL ── */}
-      <Modal
-        visible={!!coinbaseUrl}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={closeCoinbase}
-      >
-        <SafeAreaView style={styles.webviewSafe}>
-          {/* Custom header bar */}
-          <View style={styles.webviewHeader}>
-            <TouchableOpacity onPress={closeCoinbase} hitSlop={12}>
-              <Ionicons name="close" size={24} color={Colors.foreground} />
-            </TouchableOpacity>
-            <View style={styles.webviewTitleWrap}>
-              <Ionicons name="lock-closed" size={12} color={Colors.success} style={{ marginRight: 6 }} />
-              <Text style={styles.webviewTitle}>Secure Payment</Text>
-            </View>
-            <View style={{ width: 24 }} />
-          </View>
-
-          {/* Loading indicator */}
-          {webviewLoading && (
-            <View style={styles.webviewLoading}>
-              <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.webviewLoadingText}>Loading payment page...</Text>
-            </View>
-          )}
-
-          {/* The WebView */}
-          {coinbaseUrl && (
-            <WebView
-              ref={webviewRef}
-              source={{ uri: coinbaseUrl }}
-              style={{ flex: 1, opacity: webviewLoading ? 0 : 1 }}
-              onLoadEnd={() => setWebviewLoading(false)}
-              onError={(e) => {
-                console.error('[WEBVIEW] Error:', e.nativeEvent);
-                Alert.alert('Error', 'Failed to load payment page. Please try again.');
-                closeCoinbase();
-              }}
-              // Security & UX settings
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              startInLoadingState={true}
-              scalesPageToFit={true}
-              allowsBackForwardNavigationGestures={true}
-              // Handle external links (e.g. "open in Coinbase app")
-              onShouldStartLoadWithRequest={(request) => {
-                const url = request.url;
-                // Allow Coinbase domains
-                if (
-                  url.includes('coinbase.com') ||
-                  url.includes('pay.coinbase.com') ||
-                  url.includes('login.coinbase.com') ||
-                  url.includes('accounts.google.com') ||
-                  url.includes('appleid.apple.com') ||
-                  url.startsWith('about:')
-                ) {
-                  return true;
-                }
-                // Block anything else (phishing protection)
-                console.log('[WEBVIEW] Blocked external URL:', url);
-                return false;
-              }}
-            />
-          )}
-
-          {/* Powered-by footer */}
-          <View style={styles.webviewFooter}>
-            <Text style={styles.webviewFooterText}>
-              Powered by Coinbase  •  Secured by PesaFi
-            </Text>
-          </View>
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -399,68 +306,22 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
   },
-  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.foreground },
+  title: { fontSize: FontSize.lg, fontWeight: FontWeight.bold },
   scroll: { padding: Spacing.lg },
-  subtitle: { color: Colors.mutedForeground, marginBottom: Spacing.lg },
+  subtitle: { marginBottom: Spacing.lg },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   iconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  methodTitle: { fontSize: FontSize.base, fontWeight: FontWeight.semibold, color: Colors.foreground },
-  methodSubtitle: { fontSize: FontSize.sm, color: Colors.mutedForeground, marginTop: 2 },
-  badge: { backgroundColor: Colors.successBg, paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full },
-  badgeText: { fontSize: 10, fontWeight: FontWeight.bold, color: Colors.success, letterSpacing: 0.3 },
-  hint: { fontSize: FontSize.sm, color: Colors.mutedForeground, lineHeight: 20 },
+  methodTitle: { fontSize: FontSize.base, fontWeight: FontWeight.semibold },
+  methodSubtitle: { fontSize: FontSize.sm, marginTop: 2 },
+  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full },
+  badgeText: { fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.3 },
+  hint: { fontSize: FontSize.sm, lineHeight: 20 },
   successWrap: { alignItems: 'center', paddingVertical: Spacing.lg, gap: Spacing.md },
   successIcon: {
     width: 80, height: 80, borderRadius: 40,
-    backgroundColor: Colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  successTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.foreground },
-  successText: { fontSize: FontSize.base, color: Colors.mutedForeground, textAlign: 'center' },
-
-  // WebView modal styles
-  webviewSafe: { flex: 1, backgroundColor: Colors.background },
-  webviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  webviewTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  webviewTitle: {
-    fontSize: FontSize.base,
-    fontWeight: FontWeight.semibold,
-    color: Colors.foreground,
-  },
-  webviewLoading: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    zIndex: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.background,
-  },
-  webviewLoadingText: {
-    marginTop: Spacing.md,
-    color: Colors.mutedForeground,
-    fontSize: FontSize.sm,
-  },
-  webviewFooter: {
-    paddingVertical: Spacing.sm,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  webviewFooterText: {
-    fontSize: 11,
-    color: Colors.mutedForeground,
-    letterSpacing: 0.3,
-  },
+  successTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold },
+  successText: { fontSize: FontSize.base, textAlign: 'center' },
 });

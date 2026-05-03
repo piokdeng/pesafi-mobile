@@ -12,7 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/lib/auth';
 import { usePreferences } from '@/lib/preferences';
@@ -28,6 +29,7 @@ type RowProps = {
 };
 
 function Row({ icon, label, value, onPress, right, destructive }: RowProps) {
+  const { colors } = useTheme();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -35,14 +37,19 @@ function Row({ icon, label, value, onPress, right, destructive }: RowProps) {
       style={styles.row}
       activeOpacity={onPress ? 0.7 : 1}
     >
-      <View style={[styles.rowIcon, destructive && { backgroundColor: Colors.destructiveBg }]}>
-        <Ionicons name={icon} size={18} color={destructive ? Colors.destructive : Colors.primary} />
+      <View style={[
+        styles.rowIcon,
+        destructive
+          ? { backgroundColor: colors.destructiveBg }
+          : { backgroundColor: 'rgba(34,197,94,0.15)' },
+      ]}>
+        <Ionicons name={icon} size={18} color={destructive ? colors.destructive : colors.primary} />
       </View>
-      <Text style={[styles.rowLabel, destructive && { color: Colors.destructive }]}>{label}</Text>
+      <Text style={[styles.rowLabel, { color: destructive ? colors.destructive : colors.foreground }]}>{label}</Text>
       {right ?? (
         <View style={styles.rowRight}>
-          {value && <Text style={styles.rowValue}>{value}</Text>}
-          {onPress && <Ionicons name="chevron-forward" size={18} color={Colors.mutedForeground} />}
+          {value && <Text style={[styles.rowValue, { color: colors.mutedForeground }]}>{value}</Text>}
+          {onPress && <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />}
         </View>
       )}
     </TouchableOpacity>
@@ -51,6 +58,7 @@ function Row({ icon, label, value, onPress, right, destructive }: RowProps) {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { user, signOut } = useAuth();
   const { prefs, setPref, toggle } = usePreferences();
 
@@ -91,11 +99,11 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <LinearGradient
-          colors={[Colors.gradientStart, Colors.gradientEnd]}
+          colors={[colors.gradientStart, colors.gradientEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerCard}
@@ -109,12 +117,12 @@ export default function ProfileScreen() {
         </LinearGradient>
 
         {/* Account section */}
-        <Text style={styles.sectionLabel}>ACCOUNT</Text>
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>ACCOUNT</Text>
         <Card padding={0}>
           <Row icon="person-outline" label="Edit profile" onPress={() => Alert.alert('Coming soon')} />
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Row icon="cash-outline" label="Currency" value={prefs.preferredCurrency} onPress={handleCurrency} />
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Row
             icon="business-outline"
             label="Switch to Business"
@@ -123,7 +131,7 @@ export default function ProfileScreen() {
         </Card>
 
         {/* Privacy section */}
-        <Text style={styles.sectionLabel}>PRIVACY</Text>
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>PRIVACY</Text>
         <Card padding={0}>
           <Row
             icon="eye-off-outline"
@@ -132,11 +140,11 @@ export default function ProfileScreen() {
               <Switch
                 value={prefs.hideBalance}
                 onValueChange={() => toggle('hideBalance')}
-                trackColor={{ false: Colors.muted, true: Colors.primary }}
+                trackColor={{ false: colors.muted, true: colors.primary }}
               />
             }
           />
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Row
             icon="finger-print-outline"
             label="Anonymize address"
@@ -144,11 +152,11 @@ export default function ProfileScreen() {
               <Switch
                 value={prefs.anonymizeAddress}
                 onValueChange={() => toggle('anonymizeAddress')}
-                trackColor={{ false: Colors.muted, true: Colors.primary }}
+                trackColor={{ false: colors.muted, true: colors.primary }}
               />
             }
           />
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Row
             icon="notifications-outline"
             label="Push notifications"
@@ -156,19 +164,19 @@ export default function ProfileScreen() {
               <Switch
                 value={prefs.notifications}
                 onValueChange={() => toggle('notifications')}
-                trackColor={{ false: Colors.muted, true: Colors.primary }}
+                trackColor={{ false: colors.muted, true: colors.primary }}
               />
             }
           />
         </Card>
 
         {/* Support section */}
-        <Text style={styles.sectionLabel}>SUPPORT</Text>
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>SUPPORT</Text>
         <Card padding={0}>
           <Row icon="help-circle-outline" label="Help center" onPress={() => Alert.alert('Coming soon')} />
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Row icon="document-text-outline" label="Terms of service" onPress={() => Alert.alert('Coming soon')} />
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
           <Row icon="shield-checkmark-outline" label="Privacy policy" onPress={() => Alert.alert('Coming soon')} />
         </Card>
 
@@ -177,14 +185,14 @@ export default function ProfileScreen() {
           <Row icon="log-out-outline" label="Sign out" onPress={handleSignOut} destructive />
         </Card>
 
-        <Text style={styles.version}>PesaFi v0.1.0</Text>
+        <Text style={[styles.version, { color: colors.mutedForeground }]}>PesaFi v0.1.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   scroll: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
   headerCard: {
     borderRadius: Radius.xxl,
@@ -210,7 +218,6 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     fontWeight: FontWeight.bold,
-    color: Colors.mutedForeground,
     letterSpacing: 1,
     marginTop: Spacing.lg,
     marginBottom: Spacing.sm,
@@ -227,17 +234,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(34,197,94,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowLabel: { flex: 1, fontSize: FontSize.base, color: Colors.foreground, fontWeight: FontWeight.medium },
+  rowLabel: { flex: 1, fontSize: FontSize.base, fontWeight: FontWeight.medium },
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  rowValue: { fontSize: FontSize.sm, color: Colors.mutedForeground },
-  divider: { height: 1, backgroundColor: Colors.border, marginLeft: 60 },
+  rowValue: { fontSize: FontSize.sm },
+  divider: { height: 1, marginLeft: 60 },
   version: {
     textAlign: 'center',
-    color: Colors.mutedForeground,
     fontSize: FontSize.xs,
     marginTop: Spacing.xl,
   },

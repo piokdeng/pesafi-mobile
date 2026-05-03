@@ -15,11 +15,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth';
-import { Colors, Spacing, FontSize, FontWeight } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
+import { Spacing, FontSize, FontWeight } from '@/constants/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { signUp } = useAuth();
+  const { colors } = useTheme();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -47,19 +49,19 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-            <Ionicons name="arrow-back" size={24} color={Colors.foreground} />
+            <Ionicons name="arrow-back" size={24} color={colors.foreground} />
           </TouchableOpacity>
 
           <View style={styles.headerWrap}>
-            <Text style={styles.title}>Create your account</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: colors.foreground }]}>Create your account</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
               Get a free PesaFi wallet in 30 seconds. No card or seed phrase needed.
             </Text>
           </View>
@@ -71,7 +73,7 @@ export default function RegisterScreen() {
               onChangeText={setName}
               placeholder="Deng Ajak"
               autoCapitalize="words"
-              leftIcon={<Ionicons name="person-outline" size={18} color={Colors.mutedForeground} />}
+              leftIcon={<Ionicons name="person-outline" size={18} color={colors.mutedForeground} />}
             />
             <Input
               label="Email"
@@ -80,7 +82,7 @@ export default function RegisterScreen() {
               placeholder="you@example.com"
               autoCapitalize="none"
               keyboardType="email-address"
-              leftIcon={<Ionicons name="mail-outline" size={18} color={Colors.mutedForeground} />}
+              leftIcon={<Ionicons name="mail-outline" size={18} color={colors.mutedForeground} />}
             />
             <Input
               label="Phone number"
@@ -89,7 +91,7 @@ export default function RegisterScreen() {
               placeholder="+254 712 345 678"
               keyboardType="phone-pad"
               helperText="Include country code so we can route mobile money."
-              leftIcon={<Ionicons name="call-outline" size={18} color={Colors.mutedForeground} />}
+              leftIcon={<Ionicons name="call-outline" size={18} color={colors.mutedForeground} />}
             />
             <Input
               label="Password"
@@ -97,21 +99,21 @@ export default function RegisterScreen() {
               onChangeText={setPassword}
               placeholder="At least 8 characters"
               secureTextEntry
-              leftIcon={<Ionicons name="lock-closed-outline" size={18} color={Colors.mutedForeground} />}
+              leftIcon={<Ionicons name="lock-closed-outline" size={18} color={colors.mutedForeground} />}
             />
 
             <Button title="Create account" onPress={handleRegister} loading={loading} fullWidth />
 
-            <Text style={styles.terms}>
+            <Text style={[styles.terms, { color: colors.mutedForeground }]}>
               By signing up you agree to PesaFi's Terms of Service and Privacy Policy.
             </Text>
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={[styles.footerText, { color: colors.mutedForeground }]}>Already have an account? </Text>
             <Link href="/(auth)/login" asChild>
               <TouchableOpacity>
-                <Text style={styles.footerLink}>Sign in</Text>
+                <Text style={[styles.footerLink, { color: colors.primary }]}>Sign in</Text>
               </TouchableOpacity>
             </Link>
           </View>
@@ -122,16 +124,15 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   scroll: { flexGrow: 1, padding: Spacing.xl },
   back: { marginBottom: Spacing.lg },
   headerWrap: { marginBottom: Spacing.xl },
-  title: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.foreground },
-  subtitle: { fontSize: FontSize.base, color: Colors.mutedForeground, marginTop: 6, lineHeight: 22 },
+  title: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold },
+  subtitle: { fontSize: FontSize.base, marginTop: 6, lineHeight: 22 },
   form: { gap: Spacing.lg },
   terms: {
     fontSize: FontSize.xs,
-    color: Colors.mutedForeground,
     textAlign: 'center',
     marginTop: Spacing.xs,
     lineHeight: 18,
@@ -141,6 +142,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.xxl,
   },
-  footerText: { color: Colors.mutedForeground, fontSize: FontSize.base },
-  footerLink: { color: Colors.primary, fontSize: FontSize.base, fontWeight: FontWeight.semibold },
+  footerText: { fontSize: FontSize.base },
+  footerLink: { fontSize: FontSize.base, fontWeight: FontWeight.semibold },
 });

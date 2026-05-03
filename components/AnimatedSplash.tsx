@@ -1,68 +1,72 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSequence,
-  withTiming,
-  withDelay,
-  Easing,
-  runOnJS,
-} from 'react-native-reanimated';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Dimensions, Animated, Easing } from 'react-native';
 
 type Props = { onFinish: () => void };
 
 const { width, height } = Dimensions.get('window');
 
-/**
- * PesaFi splash — the wordmark starts at 0.1x scale in the dark void,
- * spring-zooms to 1x, glows for a beat, then fades out to the app.
- * Timing tuned to feel premium without keeping users waiting.
- */
 export function AnimatedSplash({ onFinish }: Props) {
-  const scale = useSharedValue(0.1);
-  const opacity = useSharedValue(0);
-  const glowOpacity = useSharedValue(0);
-  const containerOpacity = useSharedValue(1);
+  const scale = useRef(new Animated.Value(0.1)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const glowOpacity = useRef(new Animated.Value(0)).current;
+  const containerOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Wordmark: zoom + fade in
-    scale.value = withSequence(
-      withTiming(1.15, { duration: 700, easing: Easing.out(Easing.cubic) }),
-      withTiming(1.0, { duration: 200, easing: Easing.inOut(Easing.cubic) })
-    );
-    opacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) });
+    Animated.parallel([
+      // Wordmark zoom in
+      Animated.sequence([
+        Animated.timing(scale, {
+          toValue: 1.15,
+          duration: 700,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 1.0,
+          duration: 200,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      // Wordmark fade in
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 400,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      // Glow pulse (delayed)
+      Animated.sequence([
+        Animated.delay(700),
+        Animated.timing(glowOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowOpacity, {
+          toValue: 0.6,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
 
-    // Glow pulses in once the logo lands
-    glowOpacity.value = withDelay(
-      700,
-      withSequence(
-        withTiming(1, { duration: 400 }),
-        withTiming(0.6, { duration: 500 })
-      )
-    );
-
-    // Fade out the whole splash and hand off to the app
-    containerOpacity.value = withDelay(
-      1700,
-      withTiming(0, { duration: 400, easing: Easing.out(Easing.ease) }, (finished) => {
-        if (finished) runOnJS(onFinish)();
-      })
-    );
+    // Fade out and finish
+    Animated.sequence([
+      Animated.delay(1700),
+      Animated.timing(containerOpacity, {
+        toValue: 0,
+        duration: 400,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start(() => onFinish());
   }, []);
 
-  const containerStyle = useAnimatedStyle(() => ({ opacity: containerOpacity.value }));
-  const logoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
-  const glowStyle = useAnimatedStyle(() => ({ opacity: glowOpacity.value }));
-
   return (
-    <Animated.View style={[styles.container, containerStyle]}>
-      {/* Radial glow behind the logo */}
-      <Animated.View style={[styles.glow, glowStyle]} />
-      <Animated.View style={[styles.logoWrap, logoStyle]}>
+    <Animated.View style={[styles.container, { opacity: containerOpacity }]}>
+      <Animated.View style={[styles.glow, { opacity: glowOpacity }]} />
+      <Animated.View style={[styles.logoWrap, { transform: [{ scale }], opacity }]}>
         <Text style={styles.wordmark}>PesaFi</Text>
         <View style={styles.underline} />
         <Text style={styles.tagline}>USDC wallet for Africa</Text>
@@ -89,7 +93,6 @@ const styles = StyleSheet.create({
     borderRadius: 210,
     backgroundColor: '#22C55E',
     opacity: 0.25,
-    // soft blur using shadow
     shadowColor: '#22C55E',
     shadowOpacity: 0.6,
     shadowRadius: 120,

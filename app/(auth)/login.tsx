@@ -16,11 +16,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth';
-import { Colors, Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
+import { Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,7 +44,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
@@ -51,13 +53,13 @@ export default function LoginScreen() {
           {/* Logo / hero */}
           <View style={styles.heroWrap}>
             <LinearGradient
-              colors={[Colors.gradientStart, Colors.gradientEnd]}
+              colors={[colors.gradientStart, colors.gradientEnd]}
               style={styles.logoCircle}
             >
               <Text style={styles.logoText}>P</Text>
             </LinearGradient>
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>Sign in to your PesaFi wallet</Text>
+            <Text style={[styles.title, { color: colors.foreground }]}>Welcome back</Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Sign in to your PesaFi wallet</Text>
           </View>
 
           {/* Form */}
@@ -70,7 +72,7 @@ export default function LoginScreen() {
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
-              leftIcon={<Ionicons name="mail-outline" size={18} color={Colors.mutedForeground} />}
+              leftIcon={<Ionicons name="mail-outline" size={18} color={colors.mutedForeground} />}
             />
             <Input
               label="Password"
@@ -79,11 +81,11 @@ export default function LoginScreen() {
               placeholder="••••••••"
               secureTextEntry
               autoComplete="password"
-              leftIcon={<Ionicons name="lock-closed-outline" size={18} color={Colors.mutedForeground} />}
+              leftIcon={<Ionicons name="lock-closed-outline" size={18} color={colors.mutedForeground} />}
             />
 
             <TouchableOpacity style={{ alignSelf: 'flex-end' }}>
-              <Text style={styles.forgot}>Forgot password?</Text>
+              <Text style={[styles.forgot, { color: colors.primary }]}>Forgot password?</Text>
             </TouchableOpacity>
 
             <Button title="Sign in" onPress={handleLogin} loading={loading} fullWidth />
@@ -91,10 +93,10 @@ export default function LoginScreen() {
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
+            <Text style={[styles.footerText, { color: colors.mutedForeground }]}>Don't have an account? </Text>
             <Link href="/(auth)/register" asChild>
               <TouchableOpacity>
-                <Text style={styles.footerLink}>Sign up</Text>
+                <Text style={[styles.footerLink, { color: colors.primary }]}>Sign up</Text>
               </TouchableOpacity>
             </Link>
           </View>
@@ -105,7 +107,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   scroll: {
     flexGrow: 1,
     padding: Spacing.xl,
@@ -131,18 +133,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: FontSize.xxl,
     fontWeight: FontWeight.bold,
-    color: Colors.foreground,
   },
   subtitle: {
     fontSize: FontSize.base,
-    color: Colors.mutedForeground,
     marginTop: 4,
   },
   form: {
     gap: Spacing.lg,
   },
   forgot: {
-    color: Colors.primary,
     fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
   },
@@ -152,11 +151,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xxl,
   },
   footerText: {
-    color: Colors.mutedForeground,
     fontSize: FontSize.base,
   },
   footerLink: {
-    color: Colors.primary,
     fontSize: FontSize.base,
     fontWeight: FontWeight.semibold,
   },

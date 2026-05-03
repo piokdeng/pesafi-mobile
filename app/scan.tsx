@@ -11,12 +11,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { Spacing, FontSize, FontWeight, Radius } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
 import { Button } from '@/components/ui/Button';
 import { isValidEthAddress } from '@/lib/currency';
 
 export default function ScanScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
 
@@ -36,24 +38,24 @@ export default function ScanScreen() {
 
   if (!permission) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <ActivityIndicator size="large" color={Colors.primary} style={{ flex: 1 }} />
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} style={{ flex: 1 }} />
       </SafeAreaView>
     );
   }
 
   if (!permission.granted) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
         <View style={styles.permissionWrap}>
-          <Ionicons name="camera-outline" size={64} color={Colors.mutedForeground} />
-          <Text style={styles.permTitle}>Camera permission needed</Text>
-          <Text style={styles.permText}>
+          <Ionicons name="camera-outline" size={64} color={colors.mutedForeground} />
+          <Text style={[styles.permTitle, { color: colors.foreground }]}>Camera permission needed</Text>
+          <Text style={[styles.permText, { color: colors.mutedForeground }]}>
             PesaFi needs camera access to scan wallet QR codes for sending money.
           </Text>
           <Button title="Allow camera" onPress={requestPermission} fullWidth />
           <TouchableOpacity onPress={() => Linking.openSettings()} style={{ marginTop: Spacing.md }}>
-            <Text style={styles.settingsLink}>Open settings</Text>
+            <Text style={[styles.settingsLink, { color: colors.primary }]}>Open settings</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -81,10 +83,10 @@ export default function ScanScreen() {
 
         <View style={styles.frameWrap}>
           <View style={styles.frame}>
-            <View style={[styles.corner, styles.cornerTL]} />
-            <View style={[styles.corner, styles.cornerTR]} />
-            <View style={[styles.corner, styles.cornerBL]} />
-            <View style={[styles.corner, styles.cornerBR]} />
+            <View style={[styles.corner, styles.cornerTL, { borderColor: colors.primary }]} />
+            <View style={[styles.corner, styles.cornerTR, { borderColor: colors.primary }]} />
+            <View style={[styles.corner, styles.cornerBL, { borderColor: colors.primary }]} />
+            <View style={[styles.corner, styles.cornerBR, { borderColor: colors.primary }]} />
           </View>
           <Text style={styles.hint}>Point your camera at a wallet QR code</Text>
         </View>
@@ -96,7 +98,7 @@ export default function ScanScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
+  safe: { flex: 1 },
   fullScreen: { flex: 1, backgroundColor: 'black' },
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -131,7 +133,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 32,
     height: 32,
-    borderColor: Colors.primary,
   },
   cornerTL: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: Radius.md },
   cornerTR: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: Radius.md },
@@ -153,17 +154,14 @@ const styles = StyleSheet.create({
   permTitle: {
     fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
-    color: Colors.foreground,
     textAlign: 'center',
   },
   permText: {
     fontSize: FontSize.base,
-    color: Colors.mutedForeground,
     textAlign: 'center',
     marginBottom: Spacing.md,
   },
   settingsLink: {
-    color: Colors.primary,
     fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
   },
