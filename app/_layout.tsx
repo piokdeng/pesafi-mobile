@@ -19,14 +19,14 @@ function RootNavigator() {
   useEffect(() => {
     if (loading) return;
     const inAuthGroup = segments[0] === '(auth)';
-    if (!user && !inAuthGroup) {
-      router.replace('/(auth)/login');
-    } else if (user && inAuthGroup) {
-      if (user.account_type === 'business') {
-        router.replace('/(business)');
-      } else {
-        router.replace('/(tabs)');
-      }
+    if (!user) {
+      if (!inAuthGroup) router.replace('/(auth)/login');
+      return;
+    }
+    // User is logged in — enforce they are in the correct group
+    const target = user.account_type === 'business' ? '(business)' : '(tabs)';
+    if (inAuthGroup || segments[0] !== target) {
+      router.replace(`/${target}` as any);
     }
   }, [user, loading, segments]);
 
