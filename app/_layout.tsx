@@ -22,7 +22,11 @@ function RootNavigator() {
     if (!user && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (user && inAuthGroup) {
-      router.replace('/(tabs)');
+      if (user.account_type === 'business') {
+        router.replace('/(business)');
+      } else {
+        router.replace('/(tabs)');
+      }
     }
   }, [user, loading, segments]);
 
@@ -32,6 +36,7 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(business)" />
         <Stack.Screen name="send" options={{ presentation: 'modal' }} />
         <Stack.Screen name="receive" options={{ presentation: 'modal' }} />
         <Stack.Screen name="deposit" options={{ presentation: 'modal' }} />

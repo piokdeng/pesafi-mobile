@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAuthToken } from './api/client';
-import type { User } from './types';
+import type { User, AccountType } from './types';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
@@ -22,6 +22,15 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (params: { email: string; password: string; name: string; phone: string }) => Promise<void>;
+  signUpBusiness: (params: {
+    email: string;
+    password: string;
+    name: string;
+    phone: string;
+    businessName: string;
+    businessType: string;
+    country: string;
+  }) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -35,6 +44,8 @@ function mapSupabaseUser(u: any): User {
     phone: u.phone ?? u.user_metadata?.phone,
     avatar_url: u.user_metadata?.avatar_url,
     preferred_currency: u.user_metadata?.preferred_currency ?? 'KES',
+    has_business_profile: u.user_metadata?.has_business_profile ?? false,
+    account_type: (u.user_metadata?.account_type ?? 'personal') as AccountType,
   };
 }
 
@@ -80,12 +91,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw new Error(error.message);
   }, []);
 
+  const signUpBusiness = useCallback(async (params: {
+    email: string;
+    password: string;
+    name: string;
+    phone: string;
+    businessName: string;
+    businessType: string;
+    country: string;
+  }) => {
+    const { error } = await supabase.auth.signUp({
+      email: params.email,
+      password: params.password,
+      options: {
+        data: {
+          account_type: 'business' as AccountType,
+          name: params.name,
+          phone: params.phone,
+          business_name: params.businessName,
+          business_type: params.businessType,
+          country: params.country,
+          preferred_currency: 'KES',
+        },
+      },
+    });
+    if (error) throw new Error(error.message);
+  }, []);
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, token, loading, signIn, signUp, signUpBusiness, signOut }}>
       {children}
     </AuthContext.Provider>
   );
