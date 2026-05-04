@@ -19,14 +19,10 @@ function RootNavigator() {
   useEffect(() => {
     if (loading) return;
     const inAuthGroup = segments[0] === '(auth)';
-    if (!user) {
-      if (!inAuthGroup) router.replace('/(auth)/login');
-      return;
-    }
-    // User is logged in — enforce they are in the correct group
-    const target = user.account_type === 'business' ? '(business)' : '(tabs)';
-    if (inAuthGroup || segments[0] !== target) {
-      router.replace(`/${target}` as any);
+    if (!user && !inAuthGroup) {
+      router.replace('/(auth)/login');
+    } else if (user && inAuthGroup) {
+      router.replace('/(tabs)');
     }
   }, [user, loading, segments]);
 
@@ -36,7 +32,6 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(business)" />
         <Stack.Screen name="send" options={{ presentation: 'modal' }} />
         <Stack.Screen name="receive" options={{ presentation: 'modal' }} />
         <Stack.Screen name="deposit" options={{ presentation: 'modal' }} />
